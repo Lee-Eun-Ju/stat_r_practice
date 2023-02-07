@@ -1,0 +1,282 @@
+---
+title: "Chap5. Visualization of factors"
+author: <div align="right"> LEE EUN JU </div>
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Library
+```{r library}
+library(tidyverse)
+library(gridExtra)
+```
+
+### Factors  
+  
+[categorical vs factor]  
+: factor은 ordertext variable, numeric categorical variable을 factor화 할 수 있으며 주로 bar graph를 사용하여 나타낸다.  
+         
+[factor화]  
+* is.numeric() #true, false -> numeric이면 TRUE, 아니면 FALSE  
+* as.numeric() #numeric화  
+
+factor -> numeric : as.character() 후, as.numeric (바로 numeric으로 바꾸면 level로 바꾸는 것이다.)  
+num/chr -> factor : 바로 as.factor  
+
+[factor의 ordering] : 중요!!  
+[visualize facotr] : barchart (colour, fill, shape, facet 사용)
+
+<br/><br/>
+
+#### FBI data
+```{r fbi}
+fbi<-read.csv('fbi.csv')
+head(fbi)
+```
+
+#### My turn
+1) Inspect the fbi object. How many variables are there? Which type does each of the variables have?
+```{r}
+str(fbi)
+```
+fbi의 변수는 총 7개로 각 변수들은 chr, int, logi(true/false)로 이루어져 있다.
+이때, chr은 factor로 변형시켜주었다.
+
+```{r}
+fbi$State = as.factor(fbi$State)
+fbi$Abb = as.factor(fbi$Abb)
+fbi$Type = as.factor(fbi$Type)
+str(fbi)
+```
+factor은 level이 출력되는 것을 알 수있다.  
+
+2) Make a summary of Year
+```{r}
+summary(fbi$Year)
+```
+1961년부터 2018년까지의 데이터이다.  
+
+
+3) Make Year a factor variable: fbi`$`Year <- factor(fbi`$`Year)
+```{r}
+fbi$Year = factor(fbi$Year)
+```
+위에서 보았듯이 연산이 가능한 integer형태이므로 factor로 바꾸어 줄 필요가 있다.  
+
+4) Compare summary of Year to the previous result
+```{r}
+summary(fbi$Year)
+str(fbi) 
+```
+factor로 변경 후 summary => count값  
+1961년~2018 => factor로서 58개의 level이 존재한다.  
+
+
+5) Are there other variables that should be factors (or vice versa)?  
+ : 다른 변수는 factor가 될 필요가 없어 보인다.  
+
+#### factors in boxplots
+```{r }
+twoyear <- dplyr::filter(fbi, Year %in% c(1961, 2016)) 
+head(twoyear)
+str(twoyear) 
+```
+* %in%: 1961년이거나 2016년일 때
+* filter을 통해 2개의 level만을 선택
+
+```{r}
+ggplot(data=twoyear, aes(x=as.integer(Year),y=Count)) + geom_boxplot() -> p1 #x축이 58개의 level
+ggplot(data=twoyear, aes(x=factor(Year),y=Count)) + geom_boxplot() -> p2
+grid.arrange(p1,p2,nrow=1) #두개의 그래프 붙이는 것
+```
+
+p1 : x축이 58개의 integer로 설정되어 의도하고자 한 그림이 되지 않는다.   
+p2 : factor화를 통해 1961년의 분포와 2016년의 분포를 볼 수 있다.  
+* grid.arrange : 2개의 그래프를 한 번에 볼 수 있다.  
+               - nrow,ncol 옵션: 그림의 구조 설정(ex 2,2 -> 2행 2열 구조)
+               
+#### Reordering factor levels
+levels() : factors의 종류
+```{r}
+levels(fbi$Type)
+```
+
+지정한대로 reorder하는 경우
+```{r}
+fbi$Type = factor(fbi$Type, levels=c("Larceny.theft", "Burglary", "Motor.vehicle.theft", "Robbery" ,
+                                     "Aggravated.assault", "Legacy.rape", "Rape", "Murder.and.nonnegligent.Manslaughter"))
+```
+
+변수(count)별 reorder -> reorder() 함수 이용   
+* na.rm=TRUE 하지 않으면 모두 NA가 된다.
+```{r}
+fbi$Type = factor(fbi$Type, levels=levels(reorder(fbi$Type, fbi$Count, na.rm=TRUE))) 
+fbi %>% 
+  ggplot(aes(x=Type, y=Count, fill=Type)) +
+  geom_bar(stat='identity', show.legend=FALSE) + coord_flip()  #geom_bar가 2개의 변수를 사용할 때 -> stat='identity'
+```
+
+#### My turn
+Introduce a rate of the number of reported offenses by population into the fbi data. You could use the Ames standard to make values comparable to a city of the size of Ames (population ~70,000). Plot boxplots of crime rates by different types of crime. How can you make axis text legible?
+Reorder the boxplots of crime rates, such that the boxplots are ordered by their medians.(Hint: use reorder)
+```{r, fig.height=4, fig.width=7}
+fbi_rate = fbi %>% 
+  mutate(crime_rate = Count/Population)
+fbi_rate %>% 
+  ggplot(aes(x=Type, y=crime_rate, fill=Type)) +
+  geom_boxplot(show.legend=FALSE) + coord_flip()
+
+#reorder(reorder하고자 하는 변수, 정렬기준이 되는 변수, 정렬기준에 적용시킬 function)
+fbi_rate$Type = factor(fbi_rate$Type, levels=levels(reorder(fbi_rate$Type, fbi_rate$crime_rate, median, na.rm=TRUE)))
+fbi_rate %>% 
+  ggplot(aes(x=Type, y=crime_rate, fill=Type)) +
+  geom_boxplot(show.legend=FALSE) + coord_flip()
+```
+
+For one type of crime (subset!) plot boxplots of rates by state, reorder boxplots by median crime rates
+```{r}
+fbi_rate %>% 
+  filter(Type == "Larceny.theft")%>% 
+  ggplot(aes(x=State, y=crime_rate, fill=State)) +
+  geom_boxplot(show.legend=FALSE) + coord_flip()
+
+#reorder
+fbi_state = fbi_rate %>% 
+  filter(Type == "Larceny.theft") 
+fbi_state$State = factor(fbi_state$State, levels=levels(reorder(fbi_state$State, fbi_state$crime_rate, median, na.rm=TRUE)))
+
+fbi_state %>% 
+  filter(Type == "Larceny.theft")%>% 
+  ggplot(aes(x=State, y=crime_rate, fill=State)) +
+  geom_boxplot(show.legend=FALSE) + coord_flip() 
+
+```
+
+#### Changing Level's names
+```{r}
+levels(fbi$Type)
+levels(fbi$Type)[6] <- "Murder"
+levels(fbi$Type)
+```
+
+#### Example
+```{r}
+fbi<-read.csv('fbi.csv')
+fbi$State = as.factor(fbi$State)
+fbi$Abb = as.factor(fbi$Abb)
+fbi$Type = as.factor(fbi$Type)
+str(fbi)
+
+ggplot(fbi, aes(x = Type, fill=Year)) + geom_bar() 
+ggplot(fbi, aes(x = Type, fill=factor(Year))) + geom_bar()
+```
+
+* #integer이므로 Year별 색깔 구분할 수 없다 => no color
+* fill은 무조건 factor가 와야 한다.
+
+#### Example2 : titanic data - 생존률에 관한 데이터(0:사망, 1:생존)
+```{r}
+library(titanic)
+head(titanic_train)
+?titanic_train 
+```
+
+1) barcharts of all variables
+```{r}
+ggplot(titanic_train, aes(x = Survived)) +geom_bar() 
+ggplot(titanic_train, aes(x = Pclass))+geom_bar()
+ggplot(titanic_train, aes(x = Sex))+geom_bar()
+ggplot(titanic_train, aes(x = Age))+geom_bar()
+```
+
+#position="fill" : 비율100%로 , 상대적 비교가 필요할 때 사용
+```{r}
+titanic_train$Survived <- factor(titanic_train$Survived)
+ggplot(titanic_train, aes(x = Survived, fill=Survived)) + geom_bar(position="fill")
+ggplot(titanic_train, aes(x = Pclass, fill=Survived)) + geom_bar(position="fill")
+ggplot(titanic_train, aes(x = Sex, fill=Survived)) + geom_bar(position="fill")
+```
+
+2) Two and more factor variables(geom_mosaic)  
+ * product : list별로 묶어주는 역할을 한다 => geom_mosaic할때, product한 후 설정
+ * weight : stat_count()를 의미한다. 
+```{r}
+library(ggmosaic)
+titanic_train %>%
+  mutate(Age2=ifelse(Age>20, 'Adult', 'Child')) %>% 
+  ggplot() +
+  geom_mosaic(aes(x = product(Sex), fill=Survived, weight=1)) +
+  facet_grid(Age2~Pclass)
+```
+
+```{r}
+ggplot(data= fly) + geom_mosaic(aes(x = product(rude_to_recline), fill = do_you_recline ))
+```
+
+* 하나의 변수일 때
+```{r}
+fly %>% 
+  filter(!is.na(rude_to_recline)) %>% 
+  ggplot() + geom_mosaic(aes(x = product(rude_to_recline), fill = rude_to_recline )) +
+  labs(x="Is is rue recline?", title="f(RudeToRecline)")
+```
+
+* 1 ~ X+Y
+```{r}
+fly %>% 
+  filter(!is.na(rude_to_recline)) %>% 
+  ggplot() + geom_mosaic(aes(x = product(do_you_recline, rude_to_recline), fill = do_you_recline )) +
+  labs(x="Is is rue recline?", title="f(DoYouRecline | RudeToRecline)")
+```
+
+* 1 ~ X+Y/Z
+```{r}
+fly %>% 
+  filter(!is.na(rude_to_recline), !is.na(gender)) %>% 
+  ggplot() + geom_mosaic(aes(x = product(do_you_recline, rude_to_recline), fill=do_you_recline)) +
+  facet_grid(gender~.)
+```
+
+#### My turn
+1) Draw a barchart of Gender. Interpret.
+```{r}
+titanic_train %>% 
+  ggplot() +
+  geom_bar(aes(Sex, fill=Sex))
+```
+
+타이타닉호에 남성이 많이 타고 있음을 알 수 있다.
+
+2) Map survival to fill color in the barchart of Gender. Interpret.
+```{r}
+titanic_train %>% 
+  ggplot() +
+  geom_bar(aes(x=Sex, fill=Survived))
+```
+
+남성이 훨씬 많이 타고 있었음에도 여성이 훨씬 많이 생존하였다.
+
+3) In the previous barchart change the position parameter to “fill”.Interpret.
+```{r}
+titanic_train %>% 
+  ggplot() +
+  geom_bar(aes(x=Sex,fill=Survived),position="fill")
+```
+
+position="fill"을 통해 상대적으로 생존한 비율을 알 수 있다.
+
+4) Read up on the position parameter in ?geom_bar. Try out other options for position.
+```{r}
+?geom_bar
+```
+
+position = dodge : 데이터의 종류를 나눠 옆에 따로 표시
+position = stack : 위로 쌓아 누적 막대 그래프
+position = identity : 위치조정을 적용하지 않고 그래프를 겹친다
+position = jitter : 연속형자료에서 주로 사용하며 값들이 겹치지 않도록 조금씩 움직임
+
+
+

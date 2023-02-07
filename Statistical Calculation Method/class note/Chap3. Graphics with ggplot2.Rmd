@@ -1,0 +1,688 @@
+---
+title: "Chap3. Graphics with ggplot2"
+author: <div align="right"> LEE EUN JU </div>
+output: html_document
+---
+
+```{r setup, include=FALSE, fig.height=4, fig.width=6}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+### tidyverse 
+
+ggplot2, dplyr, tidyr, readr, purrr, tibble, stringr, forcats  
+* ggplot2 : graph 제작  
+* dplyr : data 조작에 대한 문법  
+* tidyr : tidy data 사용  
+* readr : rectangular data를 읽어 오는 방법
+* purr : 함수와 벡터를 이용한 프로그래밍을 하여 반복루프 시간 단축  
+* tibble : 데이터프레임의 한 형태  
+* stringr : 가능한 쉽게 문자열을 사용하도록 돕는 tool
+* forcats : factor에 대한 문제를 해결하기 위한 tool  
+  
+* pipes %>% : 생각하는 순서대로 코드를 짤 수 있다.
+```{r}
+sqrt(83)
+round(sqrt(83), digits=2)
+sqrt(83) %>% round(digits=2)
+```
+
+pipes - My turn
+```{r eval=FALSE}
+data(diamonds)
+diamonds %>% head(10)
+diamonds %>% head() %>% summary()
+```
+
+### ggplot  
+
+[ggplot2]  
+* ggplot2안에서 통계량을 구하여 그래프 그릴 수 있움  
+* mappings(aes) : 어느 변수가 올것이냐 -> 무조건 변수(열들)만 들어옴  
+* layers : 그래프 추가=> + 이용  
+* coord : x축/y축 뒤집기 등  
+* facetting : 각각 그리고자 하는 경우 
+* facet_wrap: 하나의 변수만 가능, facet_grid: 두개의 변수 가능  
+* theme : 테마  
+
+[mpg data]  
+- 데이터 안에 데이터 변수의 의미를 파악하는 것이 중요  
+  : 엔진사이즈 크기에 따른 엔진의 효율성?  
+  
+```{r data, echo=FALSE}
+data(mpg)
+mpg
+```
+
+Common problems - ggplot사용 시, +을 아래에 두면 실행되지 않는다.
+```{r, eval=FALSE}
+ggplot(data=mpg)
++ geom_point(mapping=aes(x=displ, y=hwy, shape=class))
+```
+
+
+
+
+
+### 1. Scatter plot - geom_point()
+```{r scatterplot, echo=TRUE, out.width="40%"}
+ggplot(data=mpg)+ geom_point(mapping=aes(x=displ, y=hwy))
+
+# %>% 사용
+mpg %>% 
+  ggplot()+
+  geom_point(mapping=aes(x=displ, y=hwy))
+
+#log화
+mpg %>% 
+  ggplot()+
+  geom_point(mapping=aes(x=log(displ), y=log(hwy)))
+```
+
+#### Scatterplot_my turn  
+1) Run ggplot(data = mpg). What do you see?  
+  : mapping=aes(x, y) 지정하지 않을 시, 표는 나타나지 않는다. 
+```{r}
+ggplot(data=mpg) 
+```  
+
+2) How many rows are in mpg? How many columns?
+   : 행은 234개이며 열은 11개이다. 
+```{r}
+str(mpg) 
+glimpse(mpg)
+```  
+ 
+3) What does the drv variable describe? Read the help for ?mpg to find out.  
+   : drv는 drive train의 종류를 의미한다.  
+```{r}
+?mpg 
+```
+
+4) Make a scatterplot of hwy vs cyl.  
+  : 범주형 변수의 scatterplot은 의미가 없다.
+```{r}
+ggplot(data=mpg)+ geom_point(mapping=aes(x=hwy, y=cyl))
+ggplot(data=mpg)+ geom_point(mapping=aes(x=drv, y=class)) 
+```
+
+5) What happens if you make a scatterplot of class vs drv? Why is the plot not useful?  
+  : 범주형 변수는 count data를 이용하는 것이 유용하다. => count(data, count하고자 하는 변수명)
+```{r}
+mpg %>% 
+  count(class, drv) %>% #파이프라인 사용시 count data 저장하지 않아도 된다 
+  ggplot(aes(x=class, y=drv)) +
+  geom_tile(mapping= aes(fill=n)) #n이라는 색깔로 채우는 것
+```
+
+
+
+
+
+### 2. mapping(aes)    
+=> color, size, alpha, shpae ; 모두 변수여야 한다!  
+=> aes(color) -> class별 색깔  
+```{r}
+ggplot(data=mpg)+ 
+  geom_point(mapping=aes(x=displ, y=hwy, color=class))
+```
+
+=> aes(size) -> class별로 count클수록 크기가 크다  
+```{r}
+ggplot(data=mpg)+ 
+  geom_point(mapping=aes(x=displ, y=hwy, size=class))
+```
+
+=> aes(alpha) -> class별로 count가 많을수록 진하다  
+```{r}
+ggplot(data=mpg)+ 
+  geom_point(mapping=aes(x=displ, y=hwy, alpha=class))
+```
+
+=> aes(shape) -> class별로 모양을 다르게 할 수 있다.
+```{r}
+ggplot(data=mpg)+ 
+  geom_point(mapping=aes(x=displ, y=hwy, shape=class))
+```
+
+
+#### mapping_my turn2  
+1) What goes wrong with this code?  
+  :aes(x, y), colour="blue" - 모든 점을 파란색으로 지정한 것이다.  
+  :aes(x, y, colour="blue") - aes안에는 변수만 와야하므로 blue라는 변수로 인식-> 무조건 빨간색
+```{r}
+ggplot(data=mpg) +
+  geom_point(mapping=aes(x=displ, y=hwy), colour="blue")
+
+ggplot(data=mpg) +
+  geom_point(mapping=aes(x=displ, y=hwy, colour="blue"))
+```
+
+2) Which variables in mpg are categorical? Which variables are continuous?  
+  :범주형변수 - manufacturer,model, trans,drv, fl,class  
+  :연속형변수 - 이외
+```{r}
+glimpse(mpg)
+```
+
+3) Map a continuous variable to color, size, and shape. How do these aesthetics behave differently for categorical vs. continuous variables?  
+  : 연속형변수를 size, colou로 지정한 경우 부분적으로 범위를 지정하여 표시한다.  
+```{r}
+ggplot(data=mpg) +
+  geom_point(mapping=aes(x=displ, y=hwy, size=cty))
+ggplot(data=mpg) +
+  geom_point(mapping=aes(x=displ, y=hwy, colour=cty))
+```  
+  : 하지만, shape으로 지정한 경우 error가 나타난다.  
+```{r eval=FALSE}
+ggplot(data=mpg) +
+  geom_point(mapping=aes(x=displ, y=hwy, shape=cty))
+```  
+
+4) What happens if you map the same variable to multiple aesthetics?  
+  : 같은 변수는 같은 정보이므로 colour,size 등에 넣을 필요 없다  
+```{r}
+ggplot(data=mpg) +
+  geom_point(mapping=aes(x=hwy, y=displ, colour=hwy, size=class))
+```
+
+5) What does the stroke aesthetic do? What shapes does it work with? (Hint: use ?geom_point)  
+  : stroke : 테두리의 굵기 
+```{r}
+?geom_point
+ggplot(data=mpg) +
+  geom_point(mapping=aes(x=displ, y=hwy, stroke=3, shape=class))
+```
+
+point의 테투리와 테두리 안의 색깔을 따로 지정할 때  
+-> shape지정(원:21) : colour(테두리색깔), fill(테두리 안 색깔), size(원의 크기), stroke(테두리 굵기)  
+```{r}
+ggplot(mtcars, aes(wt,mpg))+
+  geom_point(shape=21, colour="red", fill="blue", size=10, stroke=3)
+```
+
+6) What happens if you map an aesthetic to something other than a variable name, like aes(colour = displ < 5)?   
+  : 연속형범수를 범위를 지정해주어 displ이 5보다 작은 것은 파란색(TRUE), 5보다 큰 것은 빨간색(FALSE)으로 지정할 수 있다.  
+```{r}
+ggplot(data=mpg) +
+  geom_point(mapping=aes(x=displ, y=hwy, colour=displ<5))
+```
+
+
+
+
+
+### 3. Facets  
+* facet_wrap(~범주형변수) : 구분하고자 하는 범주형 변수가 1개일 때, 이를 기준으로 표를 나누어 graph를 보여준다.
+* facet_grid(범주형변수1~범주형변수2) : 구분하고자 하는 범주형 변수가 2개일 때
+```{r}
+ggplot(data=mpg) +
+  geom_point(mapping=aes(x=displ,y=hwy)) +
+  facet_wrap(~class,nrow=4)
+
+ggplot(data=mpg) +
+  geom_point(mapping=aes(x=displ,y=hwy)) +
+  facet_grid(drv~cyl)
+```
+
+#### Facets_my turn3  
+1) What happens if you facet on a continuous variable?
+  : 연속형 범수일 때, 숫자를 하나의 범주로 보아 무수히 많은 범주가 생긴다.
+  : 만약 더 큰 데이터였다면 그릴 수 없었을 것이다.
+```{r}
+ggplot(data=mpg) +
+  geom_point(mapping=aes(x=displ,y=hwy)) +
+  facet_wrap(.~cty)
+```
+
+2) What do the empty cells in plot with facet_grid(drv ~ cyl) mean? How do they relate to this plot?
+  : 빈 셀의 경우, 해당 범주 안에 데이터가 없는 경우이다.
+```{r}
+ggplot(data=mpg) +
+  geom_point(mapping=aes(x=displ,y=hwy)) +
+  facet_grid(drv~cyl)
+ggplot(data=mpg) +
+  geom_point(mapping=aes(x=drv,y=cyl)) 
+```
+
+3) What plots does the following code make? What does . do?
+  : facet_grid(A~.) - 가로로 A 범주 나누어준다.
+  : facet_grid(.~A) - 세로로 A 범주 나누어준다.
+```{r}
+ggplot(data=mpg)+
+  geom_point(mapping=aes(x=displ, y=hwy)) +
+  facet_grid(drv~.)
+ggplot(data=mpg)+
+  geom_point(mapping=aes(x=displ, y=hwy)) +
+  facet_grid(.~cyl) 
+```
+
+4) What are the advantages to using faceting instead of the colour aesthetic? What are the disadvantages? How might the balance change if you had a larger dataset?
+  : facetting - 범주형 분포를 정확히 알 수 있으나, 전체적인 분포를 알기는 어렵다.
+```{r}
+ggplot(data=mpg)+
+  geom_point(mapping=aes(x=displ, y=hwy, colour=class))
+ggplot(data=mpg)+
+  geom_point(mapping=aes(x=displ, y=hwy)) +
+  facet_wrap(~class, nrow=2)
+```
+
+5) Read ?facet_wrap. What does nrow do? What does ncol do? What other options control the layout of the individual panels? Why doesn’t facet_grid() have nrow and ncol arguments?
+ 
+  [facet_wrap 옵션] : 변수가 1개일 때   
+  : nrow=>행, ncol=>열 -> 지정한 행개수, 열개수로 graph를 나열한다.   
+  
+  [facet_grid 옵션] : 변수가 2개일 때  
+  : 변수가 2개로 하나의 변수는 가로, 또다른 변수는 세로로 지정되어 직접 nrow, ncol을 조정할 수 없어 옵션이 없다.   
+  
+```{r}
+ggplot(data=mpg)+
+  geom_point(mapping=aes(x=displ, y=hwy)) +
+  facet_wrap(~class, ncol=4)
+
+ggplot(data=mpg) +
+  geom_point(mapping=aes(x=displ,y=hwy)) +
+  facet_grid(drv~cyl)
+```
+
+```{r eval=FALSE}
+ggplot(data=mpg)+
+  geom_point(mapping=aes(x=displ, y=hwy)) +
+  facet_grid(drv~cyl, ncol=4)
+```  
+
+  옵션 scales="free_y" : 절대적인 비교가 필요없을 경우 y축 범위 최소 최대로 가능 
+```{r}
+ggplot(data=mpg)+
+  geom_point(mapping=aes(x=displ, y=hwy))+
+  facet_wrap(~class,nrow=4,scales="free_y")
+```
+
+
+
+
+
+### 4. geom_function(line, point, smooth)  
+
+* geom_smooth  
+ -> aes(group) : group별로 따로 그래프 작성할 수 있다.  
+ -> aes(linetype) : group별로 linetype 설정 -> shapetype은 설정X  
+```{r}
+ggplot(data=mpg)+
+  geom_smooth(mapping=aes(x=displ,y=hwy))
+
+ggplot(data=mpg)+
+  geom_smooth(mapping=aes(x=displ,y=hwy, group=drv)) 
+
+ggplot(data=mpg)+
+  geom_smooth(mapping=aes(x=displ,y=hwy, linetype=drv)) 
+```
+
+* geom은 계속해서 추가 가능하다.  
+ -> ggplot(mapping=aes(x,y)) : 추가되는 모든 geom function이 같은 x, y 변수 및 특징을 가진다.  
+ -> ggplot() + geom(mappin=aes(x,y)) : 추가되는 geom function에 다른 x, y 변수를 가질 수 있도록 한다.  
+                                     : filter을 이용하여 data의 일부만 선택하여 지정할 수도 있다.  
+```{r}
+ggplot(data=mpg)+ 
+  geom_smooth(mapping=aes(x=displ,y=hwy, color=drv), show.legend=F) +
+  geom_point(aes(x=displ,y=hwy))
+
+ggplot(data=mpg, mapping=aes(x=displ,y=hwy))+
+  geom_smooth(aes(color=drv), show.legend=F) +
+  geom_point()
+
+ggplot(data=mpg, mapping=aes(x=displ,y=hwy, color=drv))+
+  geom_smooth(show.legend=F) +
+  geom_point() 
+
+#data의 일부만 선택하는 경우
+ggplot(data=mpg,mapping=aes(x=displ,y=hwy))+ 
+  geom_point(mapping=aes(color=class))+
+  geom_smooth(data=filter(mpg, class=="subcompact"), se=FALSE)
+```
+
+#### geom_functions_my turn4  
+1) What geom would you use to draw a line chart? A boxplot? A histogram? An area chart?  
+line chart: geom_line(), boxplot: geom_boxplot(), histogram: geom_histogram(), area chart: geom_area()  
+```{r}
+mpg %>%  
+  ggplot()+ 
+  geom_boxplot(aes(x=drv, y=hwy))
+
+mpg %>% 
+  ggplot()+
+  geom_histogram(aes(x=drv), stat="count" )
+```
+
+2) Run this code in your head and predict what the output will look like. Then, run the code in R and check your predictions.
+  : ggplot()에 colour 또한 지정해주었으므로 point와 line 모두 drv범주에 따라 색깔을 나누고
+    se=FALSE를 설정하였기 때문에 standard error은 나타나지 않는다.
+```{r}
+ggplot(data=mpg, mapping=aes(x=displ,y=hwy,colour=drv))+
+  geom_point() + geom_smooth(se=FALSE)
+```
+
+3) What does show.legend = FALSE do? What happens if you remove it? Why do you think I used it earlier in the chapter?
+   : show.legend=FALSE -> coloring에 대한 legend를 뺀다
+```{r}
+ggplot(data=mpg, mapping=aes(x=displ,y=hwy,colour=drv),
+       show.legend=FALSE)+
+  geom_point() + geom_smooth() 
+```
+
+5) What does the se argument to geom_smooth() do?
+  : 옵션 se=standard error를 의미  -> se=FALSE : standard error를 제외하고 graph를 그린다.
+```{r}
+ggplot(data=mpg, mapping=aes(x=displ,y=hwy,colour=drv),
+       show.legend=FALSE)+
+  geom_point() + geom_smooth(se=FALSE)
+```
+
+6) Will these two graphs look different? Why/why not?
+```{r}
+ggplot(data=mpg, mapping=aes(x=displ, y=hwy)) +
+  geom_point() + geom_smooth()
+```  
+
+ -> ggplot()에 data와 mapping 지정하지 않을 시, geom_function에서 각각 지정해주어야 한다.
+    이에 따라 아래의 그래프에서는 데이터 입력을 하지 않아 선이 그려지지 않는다.
+```{r}
+ggplot() + 
+  geom_point(data=mpg, mapping = aes(x=displ, y=hwy)) +
+  geom_smooth()
+```
+
+7) Use variables displ, hwy, drv and recreate following plots.  
+7-1  
+```{r echo=TRUE}
+mpg %>% 
+  ggplot(mapping=aes(x=displ, y=hwy)) +
+  geom_point() + geom_smooth(se=FALSE)
+```  
+
+* geom을 이용하여 산점도와 x축과 y축의 관계를 나타낸 그래프를 함께 볼 수 있다.  
+ 이에 따르면, 엔진배기량과 고속도로 주행 거리는 음의 상관관계를 보임을 알 수 있다.  
+
+7-2 
+```{r echo=TRUE}
+mpg %>% 
+  ggplot(mapping=aes(x=displ, y=hwy)) +
+  geom_point() + geom_smooth(aes(group=drv),se=FALSE)
+```  
+
+* 열차의 종류에 따른, 엔진배기량과 고속도로 주행 거리의 관계를 알 수 있다.   
+  모든 종류가 음의 상관관계가 보임을 알 수 있다.  
+
+7-3 
+```{r echo=TRUE}
+mpg %>% 
+  ggplot(mapping=aes(x=displ, y=hwy)) +
+  geom_point(aes(colour=drv)) + geom_smooth(aes(colour=drv),se=FALSE)
+```  
+
+* 색깔을 열차종류 변수로 지정하여 어떤 열차의 산점도와 그래프인지 알 수 있다.   
+  이를 통해 f열차는 엔진배기량이 작고 r열차는 엔진배기량이 크고   
+  4열차는 다양한 엔진배기량을 사용한다는 것을 추가적으로 알 수 있다.  
+
+7-4
+```{r echo=TRUE}
+mpg %>% 
+  ggplot(mapping=aes(x=displ, y=hwy)) +
+  geom_point(aes(colour=drv)) + geom_smooth(se=FALSE)
+```  
+
+* 열차 종류에 따른 엔진배기량과 주행거리의 분포를 알 수 있고  
+  전반적으로 엔진배기량과 주행거리는 음의 관계에 있음을 알 수 있다.  
+
+7-5  
+```{r echo=TRUE}
+mpg %>% 
+  ggplot(mapping=aes(x=displ, y=hwy)) +
+  geom_point(aes(colour=drv)) + geom_smooth(aes(linetype=drv),se=FALSE)
+```  
+
+* linetype을 열차종류 변수로 지정하여 각 종류마다 다른 선모양으로 구분할 수 있다.  
+
+7-6  
+```{r echo=TRUE}
+mpg %>%
+  ggplot(mapping=aes(x=displ, y=hwy)) +
+  geom_point(mapping=aes(fill=drv), shape=21, colour="white", stroke=2) 
+```  
+
+* shape을 지정하면, 점의 모양을 조정할 수 있고 이때, stroke은 점의 테두리 두께를 의미한다.   
+  이에 따라 점의 테투리 색은 colour로 점 안의 색은 fill로 지정해준다.  
+
+
+
+
+
+### 5. Statistical transformations  
+```{r}
+library(tidyverse)
+diamonds
+```
+
+geom_bar/ default값이 stat="count"이므로 stat_count()와 동일하게 사용된다.  
+```{r echo=FALSE}
+ggplot(data=diamonds) +
+  geom_bar(mapping=aes(x=cut))
+
+ggplot(data=diamonds) +
+  stat_count(mapping=aes(x=cut))
+```
+
+stat_summary - 작년 중간고사에 출제  
+=> 각 x값에 대한 y값을 summarise할 때 유용하게 사용된다  
+=> fun.ymin, fun.ymax, fun.y를 이용하여 y를 summarise할 수 있고 colour,shape 등을 조절할 수 있다.  
+   geom="point", geom="line" 등을 통해 어떻게 나타낼지도 조정할 수 있다.   
+```{r}
+ggplot(data=diamonds) +
+  stat_summary(
+    mapping = aes(x=cut,y=depth),
+    fun.ymin = min,
+    fun.ymax = max,
+    fun.y = median
+  )
+
+d= ggplot(mtcars, aes(cyl,mpg)) + geom_point()
+d + stat_summary(fun.y="mean", colour="red", shape=3,
+                 geom="line")
+```
+
+#### Statistical transformations_my turn5  
+1) What variables does stat_smooth() compute? What parameters control its behaviour?  
+  : stat_smooth()는 y의 예측값과 신뢰구간을 알 수 있다.  
+```{r}}
+?stat_smooth()
+ggplot(mtcars, aes(disp,mpg)) + 
+  geom_point(aes(colour=cyl)) +
+  stat_smooth()
+```
+
+2) Bar charts for proportion  
+* 양쪽에 .. 넣는 것 : count를 의미  
+* group=1 지정을 함으로써 전체 count에서 각 범주별 count에 대한 비율을 알 수 있다.  
+  -> 1을 전체로 보고 각 count의 비율을 나타내는 것  
+```{r}
+ggplot(data=diamonds) +
+  geom_bar(mapping = aes(x=cut, y=..prop..))
+
+ggplot(data=diamonds) +
+  geom_bar(mapping = aes(x=cut, fill=color, y=..prop..))
+
+ggplot(data=diamonds) +
+  geom_bar(mapping = aes(x=cut, y=..prop.., group=1))
+```  
+
+3) With the fill aesthetic, the heights of the bars need to be normalized.  
+* 각 color별 percent 또한 알기 위해 정규화한다.  
+```{r}
+ggplot(data=diamonds)+
+  geom_bar(aes(x=cut,y=..count../sum(..count..),fill=color)) 
+```
+
+
+
+
+
+### 6. Position adjustments  
+geom_bar의 colour-> boundary 색깔, fill-> bar자체의 색깔  
+           x와 다른 변수 입력 시, 범주별 색깔 구분하여 count  
+```{r}
+ggplot(data=diamonds) +
+   geom_bar(mapping=aes(x=cut, colour=cut)) 
+
+ggplot(data=diamonds) +
+   geom_bar(mapping=aes(x=cut, fill=cut))
+
+ggplot(data=diamonds) +
+   geom_bar(mapping=aes(x=cut, fill=clarity))
+```
+
+alpha : 투명도  
+fill= NA 색깔 없음 - text 채워넣어야 할때 필요  
+```{r}
+ggplot(data = diamonds,
+       mapping = aes(x = cut,fill = clarity)) +
+  geom_bar(alpha = 1/5, position = "identity")
+
+ggplot(data = diamonds,
+mapping = aes(x = cut, colour = clarity)) +
+geom_bar(fill = NA, position = "identity")
+```  
+
+position  
+=identity : geom_bar에만 해당하는 옵션으로 겹쳐서 나온다.  
+=fill : (상대적인 비교가 필요할때) 100%라고 봤을 대 각 그룹에서 퍼센트 어떠케 차지하느냐   
+=dodge : 그룹별 각각의 count를 옆으로 bar graph 나열  
+=jitter : 비슷한 점들 겹쳐서 안보이는 것들을 흩으려놓고 몇개정도 있는지 보기 위한 것    
+```{r}
+ggplot(data = diamonds) +
+  geom_bar(mapping = aes(x = cut, fill = clarity),
+           position = "fill")
+
+ggplot(data = diamonds) +
+  geom_bar(mapping = aes(x = cut, fill = clarity),
+           position = "dodge")
+
+ggplot(data = mpg) +
+  geom_point(mapping = aes(x = displ, y = hwy),
+             position = "jitter")
+
+```
+
+#### Position adjustments_my turn6
+What’s the default position adjustment for geom_boxplot()? Create a visualization of the mpg dataset that demonstrates it.  
+: position 미지정시, 각 group별 boxplot을 따로 따로 그린다.
+: position="identity" -> 각 group별 상자그림 겹쳐져서 확인 - drv별 전체 분포를 알기 쉽다.
+```{r}
+ggplot(data=mpg, aes(x=drv, y=hwy, colour=class)) +
+   geom_boxplot()
+
+ggplot(data=mpg, aes(x=drv, y=hwy, colour=class)) +
+   geom_boxplot(position = "identity")
+```
+
+
+
+
+
+### 7. Coordinate systems  
+coord_flip() : x,y축 뒤집어 준다.  
+```{r}
+ggplot(data=mpg, aes(x=class, y=hwy)) +
+   geom_boxplot()+ coord_flip()
+```
+
+coord_quickmap : 그림을 알맞게 조정 
+```{r}
+library(maps)
+nz = map_data("nz")
+ggplot(nz, aes(long, lat, group=group)) +
+  geom_polygon(fill="white", colour="black")
+
+ggplot(nz, aes(long, lat, group=group)) +
+  geom_polygon(fill="white", colour="black") +
+  coord_quickmap()
+```
+
+coord_polar : 원형으로 퍼지는 형태 
+```{r}
+bar = ggplot(data=diamonds) +
+  geom_bar(mapping= aes(x=cut, fill=cut), show.legend=FALSE, width=1) +
+  theme(aspect.ratio=1) + labs(x=NULL, y=NULL)
+bar + coord_polar()
+```
+
+#### Coordinate systems_my turn7  
+1) Turn a stacked bar chart into a pie chart using coord_polar().    
+* 데이터에 따라 무슨 형태의 그림으로 보여줄지 생각해볼 필요 -> pie-chart형태
+* factor(1) : drv에 대해서만 그래프 그리도록 한다.  
+```{r}
+ggplot(mpg, aes(x=factor(1), fill=drv)) +
+  geom_bar() 
+
+ggplot(mpg, aes(x=factor(1), fill=drv)) +
+  geom_bar(width=1) + coord_polar(theta='y')
+```
+
+* theta='y' 지정하지 않을시, bulls-eye chart가 생성되나 이 그림은 안 그리는 것이 좋다.
+```{r}
+ggplot(mpg, aes(x=factor(1), fill=drv)) +
+  geom_bar(width=1) + coord_polar()
+```
+
+2) What does labs() do? Read the documentation.
+```{r}
+ggplot(data=mpg, mapping=aes(x=class, y=hwy)) +
+  geom_boxplot() + coord_flip() +
+  labs(y="Highway MPG", #ylab
+       x="Class", #xlab
+       title="Highway MPG by car class", #ggtitle
+       subtitle = "1999-2008",
+       caption="Source: http://fueleconomy.gov")
+```
+
+
+
+
+
+### [ggplot gallery](https://www.r-graph-gallery.com/) 
+```{r eval=FALSE}
+install.packages("igraph")
+library(igraph)
+
+# Create data
+data <- matrix(sample(0:1, 400, replace=TRUE, prob=c(0.8,0.2)), nrow=20)
+network <- graph_from_adjacency_matrix(data , mode='undirected', diag=F )
+
+# When ploting, we can use different layouts:
+par(mfrow=c(2,2), mar=c(1,1,1,1))
+plot(network, layout=layout.sphere, main="sphere")
+plot(network, layout=layout.circle, main="circle")
+plot(network, layout=layout.random, main="random")
+plot(network, layout=layout.fruchterman.reingold, main="fruchterman.reingold")
+
+
+library(gapminder)
+
+# Charge libraries:
+library(ggplot2)
+library(gganimate)
+
+# Make a ggplot, but add frame=year: one image per year
+ggplot(gapminder, aes(gdpPercap, lifeExp, size = pop, color = continent)) +
+  geom_point() +
+  scale_x_log10() +
+  theme_bw() +
+  # gganimate specific bits:
+  labs(title = 'Year: {frame_time}', x = 'GDP per capita', y = 'life expectancy') +
+  transition_time(year) +
+  ease_aes('linear')
+
+# Save at gif:왜error가 나타날까
+anim_save("271-ggplot2-animated-gif-chart-with-gganimate1.gif")
+```
+

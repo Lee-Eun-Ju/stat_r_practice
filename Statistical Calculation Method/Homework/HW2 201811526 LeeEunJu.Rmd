@@ -1,0 +1,87 @@
+---
+title: "Statistic Calculate Method"
+output: html_document 
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, fig.width=6, fig.height=4)
+```
+
+## HW2 201811526 이은주
+
+```{r echo=FALSE, include=TRUE}
+library(tidyverse)
+data(mpg)
+```
+
+### 7-1
+```{r echo=TRUE}
+mpg %>% 
+  ggplot(mapping=aes(x=displ, y=hwy)) +
+  geom_point() + geom_smooth(se=FALSE)
+```
+ 
+* geom을 이용하여 산점도와 x축과 y축의 관계를 나타낸 그래프를 함께 볼 수 있다.  
+ 이에 따르면, 엔진배기량과 고속도로 주행 거리는 음의 상관관계를 보임을 알 수 있다.
+
+\pagebreak
+
+### 7-2
+```{r echo=TRUE}
+mpg %>% 
+  ggplot(mapping=aes(x=displ, y=hwy)) +
+  geom_point() + geom_smooth(aes(group=drv),se=FALSE)
+```
+
+* 열차의 종류에 따른, 엔진배기량과 고속도로 주행 거리의 관계를 알 수 있다.  
+  모든 종류가 음의 상관관계가 보임을 알 수 있다.
+
+\pagebreak
+
+### 7-3
+```{r echo=TRUE}
+mpg %>% 
+  ggplot(mapping=aes(x=displ, y=hwy)) +
+  geom_point(aes(colour=drv)) + geom_smooth(aes(colour=drv),se=FALSE)
+```
+ 
+* 색깔을 열차종류 변수로 지정하여 어떤 열차의 산점도와 그래프인지 알 수 있다.  
+  이를 통해 f열차는 엔진배기량이 작고 r열차는 엔진배기량이 크고  
+  4열차는 다양한 엔진배기량을 사용한다는 것을 추가적으로 알 수 있다.
+
+\pagebreak
+
+### 7-4
+```{r echo=TRUE}
+mpg %>% 
+  ggplot(mapping=aes(x=displ, y=hwy)) +
+  geom_point(aes(colour=drv)) + geom_smooth(se=FALSE)
+```
+
+* 열차 종류에 따른 엔진배기량과 주행거리의 분포를 알 수 있고  
+  전반적으로 엔진배기량과 주행거리는 음의 관계에 있음을 알 수 있다.
+
+\pagebreak
+
+### 7-5
+```{r echo=TRUE}
+mpg %>% 
+  ggplot(mapping=aes(x=displ, y=hwy)) +
+  geom_point(aes(colour=drv)) + geom_smooth(aes(linetype=drv),se=FALSE)
+```
+
+* linetype을 열차종류 변수로 지정하여 각 종류마다 다른 선모양으로 구분할 수 있다.
+
+\pagebreak
+
+### 7-6
+```{r echo=TRUE}
+mpg %>%
+  ggplot(mapping=aes(x=displ, y=hwy)) +
+  geom_point(mapping=aes(fill=drv), shape=21, colour="white", stroke=2) 
+```
+
+* shape을 지정하면, 점의 모양을 조정할 수 있고 이때, stroke은 점의 테두리 두께를 의미한다.  
+  이에 따라 점의 테투리 색은 colour로 점 안의 색은 fill로 지정해준다.
+
+

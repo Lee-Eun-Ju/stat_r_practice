@@ -1,0 +1,837 @@
+---
+title: "Chap4. Data transformation"
+author: <div align="right"> LEE EUN JU </div>
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE)
+```
+
+### LIBRARY & DATA  
+nycflights13::flights (package::function -> 지정한 package내의 function 사용)  
+```{r data}
+library(tidyverse)
+library(nycflights13)
+?flights
+str(flights)
+```
+
+* dep_time, arr_time : 517 -> 5시 17분
+* time_hour : dttime형("year-month-day dep_time") -> 연산 가능
+
+### 1. Filter  
+filter(data, 조건) : 조건이 TRUE인 행만 선택하여 도출한다.  
+```{r filter}
+filter(flights, month==1, day==1) %>% head(10)
+(dec25 = filter(flights, month==12, day==25))
+```
+
+%>% : 데이터를 저장하지 않고 볼 수 있다.(계속해서 저장하고 사용할 시, 메모리X)  
+()  : 새로운 변수로 지정하면서 동시에 출력할 수 있다.  
+
+### Filter - My turn  
+1) Find all flights that
+```{r filter_myturn1}
+#1-1. Had an arrival delay of two or more hours
+filter(flights, arr_delay>=120) 
+
+#1-2. Flew to Houston (IAH or HOU)
+filter(flights, dest=="IAH"|dest=="HOU")
+filter(flights, dest %in% c("IAH", "HOU"))
+
+#1-3. Were operated by United (UA), American (AA), or Delta (DL). Find the data airline to get details.
+filter(flights, carrier=="UA"|carrier=="AA"|carrier=="DL")
+
+#1-4. Departed in summer (July, August, and September)
+filter(flights, month==7|month==8|month==9)
+filter(flights, between(month,7,9))
+
+#1-5. Arrived more than two hours late, but didn’t leave late
+filter(flights, arr_delay>=120 & dep_delay<=0)
+
+#1-6. Were delayed by at least an hour, but made up over 30 minutes in flight
+filter(flights, dep_delay>=60 & dep_delay-30>=arr_delay)
+filter(flights, dep_delay>=60 & dep_delay-arr_delay>30)
+
+#1-7. Departed between midnight and 6am (inclusive)
+summary(flights$dep_time)
+filter(flights, (dep_time>0 & dep_time<600)|dep_time==2400)
+filter(flights, dep_time %% 2400 <=600) #2400으로 나누었을 때의 나머지
+```
+
+2) How many flights have a missing dep_time? What other variables are missing? What might these rows represent?  
+  : dep_time이 NA인 flights 행들을 보면, arr_time도 모두 NA인 것으로 보아 아예 출발 및 도착하지 않고 cancel된 것으로 볼 수 있다.  
+```{r}
+sum(is.na(flights$dep_time))
+filter(flights, is.na(dep_time)) %>% nrow()
+filter(flights, is.na(dep_time))
+```
+
+
+### 2. Arrange   
+arrange(data, 정렬기준이 되는 변수) : 변수를 기준으로 내림차순/오름차순 정렬을 한다.  
+
+* desc : 내림차순  
+* arrange(변수1, 변수2, 변수3) : 먼저 나온 순서대로 정렬  
+```{r}
+arrange(flights, desc(dep_delay))
+arrange(flights, dep_delay)
+arrange(flights, year, month, desc(day))
+arrange(flights, year, month, day) %>% tail()
+```
+
+* missing은 내림차순이든 오름차순이든 무조건 맨밑에 정렬된다  
+```{r}
+df = tibble(x = c(5,2,NA))
+arrange(df, x)
+arrange(df, desc(x))
+```
+
+#### Arrange - My turn
+(1) How could you use arrange() to sort all missing values (in dep_time) to the start?
+```{r}
+arrange(flights, desc(is.na(dep_time)))
+```
+is.na(dep_time) : NA는 TRUE(1)로 인식하고, NA가 아닌 경우 FALSE(0)로 인식한다.  
+이때, 내림차순 정렬을 하여 1(NA)부터 정렬한다.
+
+(2) Sort flights to find the most delayed flights. Find the flights that left earliest.
+```{r}
+flights %>% arrange(desc(dep_delay))
+flights %>% arrange(dep_delay)
+```
+내림차순 정렬(desc)을 통해 가장 지연된 비행기부터 정렬할 수 있다.  
+오름차순 정렬에 따르면 가장 일찍 떠난 비행기는 97번이다.
+
+(3) Sort flights to find the fastest (highest speed) flights.
+```{r}
+flights %>% arrange(air_time) %>% select(air_time, flight, everything())
+```
+4368, 4631 flight이 air_time이 20분으로 fatest flights이다.
+
+(4) Which flights traveled the farthest? Which traveled the shortest?
+```{r}
+(fli_dist = flights %>% arrange(distance) %>% select(distance, flight, everything()))
+fli_dist[1,] #shortest
+fli_dist[dim(fli_dist)[1],] #farthest
+```
+shortest flight : 1632, farthest flight : 51
+
+
+### 3. Select  
+select(data, 변수(column)) : 선택한 column만을 선택하여 도출한다.  
+```{r}
+select(flights, year, month, day)
+select(flights, year:day)
+select(flights, -(year:day))
+```
+
+* starts_with("abc") : abc로 시작하는 열이름 선택
+* ends_with("xyz") : xyz로 끝나는 열이름 선택
+* contains("ijk") : ijk가 포함되는 열이름 선택
+* matches("(.)\\1") : 문자열(string)에서 정규표현식을 이용
+* num_range("x", 1:3) : x1,x2,x3 
+
+```{r}
+select(flights, starts_with("arr"))
+select(flights, ends_with("time"))
+select(flights, contains("dep"))
+rename(flights, YEAR=year)
+select(flights, time_hour, air_time, everything()) #시험★
+```
+
+#### Select - My turn
+(1) Brainstorm as many ways as possible to select dep_time, dep_delay, arr_time, and arr_delay from flights
+```{r}
+flights %>% select(dep_time, dep_delay, arr_time, arr_delay)
+flights %>% select(starts_with("dep"), starts_with("arr"))
+flights %>% select(matches("dep_(.)"), matches("arr_(.)"))
+```
+
+(2) What happens if you include the name of a variable multiple times in a select() call?
+```{r}
+flights %>% select(dep_time, arr_time, dep_time)
+```
+반복하여 변수명을 포함할 시, 뒤의 변수는 무시한다.
+
+(3) What does the one_of() function do? Why might it be helpful in conjunction with this vector?
+```{r}
+?select #all_of(), any_of()
+vars <- c("year", "month", "day", "dep_delay", "arr_delay")
+flights %>% select(one_of(vars))
+```
+all_of, any_of : Matches variable names in a character vector  
+one_of : all_of, any_of의 상위버전
+
+(4) Does the result of running the following code surprise you? How do the select helpers deal with case by default? How can you change that default?
+```{r}
+select(flights, contains("time"))
+select(flights, contains("TIME"))
+select(flights, contains("TIME", ignore.case=FALSE))
+```
+select()는 변수명의 대문자, 소문자 구분을 하지 않는다.  
+이때, inore.case=FALSE 옵션을 추가하면 대소문자를 구분한다.
+
+### 4. Mutate  
+mutate() : 생성한 새로운 열을 덧붙인다.  
+```{r}
+flights_sml = select(flights, year:day, ends_with("delay"), distance, air_time)
+mutate(flights_sml, gain=dep_delay-arr_delay, speed=distance/air_time*60)
+mutate(flights_sml, gain=dep_delay-arr_delay, hours=air_time/60,
+                    gain_per_hour=gain/hours)
+```
+
+transmute() : 생성한 열만으로 데이터 생성
+```{r}
+transmute(flights, gain=dep_delay-arr_delay, hours=air_time/60,
+                   gain_per_hour=gain/hours)
+```
+
+creation function  
+
+* %/% : 나눗셈의 몫(정수)  
+* %% : 나눗셈의 나머지  
+* logs : log(), log2(), log10()  
+* offsets : lag() - 이전 값, lead() - 다음 값  
+
+* cumsum : 1, 1+2, 1+2+3 ....  
+* cummean : 데이터를 늘려가며 평균 값   
+* cummin : 데이터를 늘려가며 그 중 가장 작은 수  
+* cummax : 데이터를 늘려가며 그 중 가장 큰 수  
+
+* min_rank <- desc(): 가장 큰 수부터 순위를 매긴다.  
+* row_number  
+* dense_rank  
+
+#### Mutate - My turn
+1) Currently dep_time and sched_dep_time are convenient to look at, but hard to compute with because they’re not really continuous numbers. Convert them to a more convenient representation of number of minutes since midnight
+```{r eval=FALSE}
+flights_my = mutate(flights, dep_min = ifelse(dep_time==2400, 0, (dep_time%/%100)*60 + dep_time%%100),
+                             sched_dep_min = ifelse(sched_dep_time==2400, 0, 
+                                                   (sched_dep_time%/%100)*60 + sched_dep_time%%100))
+select(flights_my, dep_time, dep_min, sched_dep_time, sched_dep_min)
+```
+
+* 백의 자리수: 시, 십의자리수와 일의자리수: 분  
+-> 100으로 나눈 몫(시)에 60을 곱해주고 나머지(분)을 더해준다.  
+-> 이때, 2400을 0분으로 표시해주기 위해 1440(24*60)분으로 나누어 나머지를 표시하도록 한다.   
+```{r}
+flights %>% mutate(dep_time_cov = ((dep_time%/%100)*60 + dep_time%%100) %% 1440,
+                   sched_dep_time_cov = ((sched_dep_time%/%100)*60 + sched_dep_time%%100) %% 1440)
+```
+
+2) Compare air_time with arr_time - dep_time. What do you expect to see? What do you see? What do you need to do to fix it?   
+: air_tme과 diff의 차이 -> 변수가 하나일 때 histogram, boxplot 등을 통해 특징 확인  
+```{r}
+flights_my = mutate(flights, dep_min = ((dep_time%/%100)*60 + dep_time%%100) %% 1440,
+                    arr_min = ((arr_time%/%100)*60 + arr_time%%100) %% 1440,
+                    diff = arr_min - dep_min)
+
+ggplot(flights_my) + geom_histogram((aes(air_time-diff)), binwidth=1)
+flights_my %>% filter(air_time-diff!=0)
+```
+
+3) Compare dep_time, sched_dep_time, and dep_delay. How would you expect those three numbers to be related?
+```{r}
+flights_my = mutate(flights, dep_min = ((dep_time%/%100)*60 + dep_time%%100) %% 1440,
+                             sched_dep_min = ((sched_dep_time%/%100)*60 + sched_dep_time%%100) %% 1440,
+                             delay_diff = dep_min - sched_dep_min )
+ggplot(flights_my) +
+  geom_histogram(aes(dep_delay-delay_diff))
+
+fli = select(flights_my, dep_time, sched_dep_time, dep_min, sched_dep_min, dep_delay, delay_diff)
+filter(fli, dep_delay-delay_diff !=0 )
+```
+=> 예정된 출발 시간과 출발 시간의 차이는 dep_delay가 되어야 하지만 같지 않은 경우가 존재한다.  
+   이는 delay되어 다음날 출발하게 된 경우로 delay time이 맞지 않다.
+
+4) Find the 10 most delayed flights using a ranking function. How do you want to handle ties? Carefully read the documentation for min_rank().  
+* min_rank, row_number, dense_rank를 통해 내림차순으로 delay 변수 정렬  
+* slice : 행 선택  
+```{r}
+flights = mutate(flights, flights_min = min_rank(desc(flights$dep_delay)),
+                 flights_row = row_number(desc(flights$dep_delay)),
+                 flights_dense = dense_rank(desc(flights$dep_delay)))
+flights_rank = filter(flights,    
+                      flights_min<=10|flights_row<=10|flights_dense<=10) %>%
+               arrange(flights_min, flights_row, flights_dense) %>% 
+               slice(1:10) 
+flights_rank
+top_n(flights, 10, dep_delay) 
+```  
+
+### 5. Summarise - Group by  
+* group_by를 통해 각 group별로 summarise 할 수 있다.
+* na.rm=TRUE : 결측값을 통계량 계산할 때 포함하지 않는다.  
+```{r}
+# 전체 delay 평균
+summarise(flights, delay = mean(dep_delay, na.rm=TRUE))
+
+# day별 delay 평균
+by_day = group_by(flights, year, month, day)
+summarise(by_day, delay= mean(dep_delay, na.rm=TRUE))
+```
+
+* Combining multiple operations with the pipe - 목적지별 거리와 도착 delay의 관계
+```{r}
+by_dest = group_by(flights, dest)
+delay = summarise(by_dest, 
+                  count = n(),
+                  dist = mean(distance, na.rm=TRUE),
+                  delay = mean(arr_delay, na.rm=TRUE))
+delay = filter(delay, count>20, dest!="HNL")
+ggplot(data=delay, mapping=aes(x=dist, y=delay)) +
+  geom_point(aes(size=count), alpha=1/3) + geom_smooth(se=FALSE) 
+
+# Use %>% 
+flights %>% 
+  group_by(dest) %>% 
+  summarise(
+    count=n(), 
+    dist=mean(distance, na.rm=TRUE), 
+    delay=mean(arr_delay, na.rm=TRUE)) %>% 
+  filter(count>20, dest!="HNL") %>% 
+  ggplot(mapping=aes(x=dist, y=delay)) +
+  geom_point(aes(size=count), alpha=1/3) +
+  geom_smooth(se=FALSE)
+```
+
+* Missing values
+- na.rm=TRUE를 이용하여 결측치 계산하지 않는다.
+```{r}
+flights %>% 
+  group_by(year,month,day) %>% 
+  summarise(mean=mean(dep_delay, na.rm=TRUE))
+```
+
+- na데이터를 제거한다.
+```{r}
+not_cancelled = flights %>% 
+  filter(!is.na(dep_delay), !is.na(arr_delay))
+not_cancelled %>% 
+  group_by(year,month,day) %>% 
+  summarise(mean=mean(dep_delay))
+```
+
+* Counts  
+- n() : group내 데이터 개수   
+- sum(!is.na(x)) : NA가 아닌 데이터 개수  
+
+비행기 tailnum에 따른 delay 평균  
+```{r}
+not_cancelled %>% 
+  group_by(tailnum) %>% 
+  summarise(delay=mean(arr_delay)) %>% 
+  ggplot(mapping=aes(x=delay)) +
+  geom_freqpoly() #desnsity화
+```
+
+delay에 대한 count-> n()을 이용  
+```{r}
+delays = not_cancelled %>% 
+  group_by(tailnum) %>% 
+  summarise(delay=mean(arr_delay, na.rm=TRUE), n=n())
+
+ggplot(data=delays, mapping=aes(x=n, y=delay)) + geom_point(alpha=1/10)
+delays %>% filter(n>25) %>% 
+  ggplot(mapping = aes(x=n, y=delay)) +
+  geom_point(alpha=1/10)
+```
+
+* Useful summary functions   
+mean : 변수에 대한 평균  
+median : 변수에 대한 중앙값  
+sd : 변수에 대한 표준편차  
+min/max : 변수에 대한 최소값/최대값  
+
+```{r}
+not_cancelled %>% 
+  group_by(year, month, day) %>% 
+  summarise(
+    avg_delay1 = mean(arr_delay),
+    avg_delay2 = mean(arr_delay[arr_delay>0]),
+    avg_delay3 = median(arr_delay))
+
+not_cancelled %>% 
+  group_by(dest) %>% 
+  summarise(distance_sd = sd(distance)) %>% 
+  arrange(desc(distance_sd))
+
+not_cancelled %>%
+  group_by(year, month, day) %>%
+  summarise(
+    first = min(dep_time),
+    last = max(dep_time))
+```
+
+first : 그룹 내에서 첫번째로 위치한 행  
+last : 그룹 내에서 마지막으로 위치한 행  
+```{r}
+not_cancelled %>%
+  group_by(year, month, day) %>%
+  summarise(
+  first_dep = first(dep_time),
+  last_dep = last(dep_time))
+```
+
+range : 범위  
+```{r}
+not_cancelled %>%
+  group_by(year, month, day) %>%
+  mutate(r = min_rank(desc(dep_time))) %>% 
+  filter(r %in% range(r) ) %>% head(10)
+```
+* rank에 대한 범위로 range(r)은 첫번째 순위(1) 또는 마지막 순위를 의미하므로 year/month/day별 첫번째 순위, 마지막순위을 뽑는다.  
+
+n_dstinct() : unique한 값에 대한 개수
+```{r}
+not_cancelled %>%
+  group_by(dest) %>%
+  summarise(carriers = n_distinct(carrier)) %>%
+  arrange(desc(carriers))
+```
+
+count() : 범주별 count  
+-> wt 옵션 : 빈도 구할 때 가중치를 적용한다.
+```{r}
+# D942DN범주 - 4개
+not_cancelled %>%
+  count(tailnum) 
+
+# 가중치 적용 시, D942DN 3418 -> D942DN일 때, distance의 합과 동일하다.
+not_cancelled %>%
+  count(tailnum, wt = distance) 
+filter(not_cancelled, tailnum=="D942DN") %>%
+  summarise(sum_dist=sum(distance)) 
+```
+
+counts and proportions  
+* logical value sum -> count: 조건이 TRUE인 개수  
+* logical value mean -> proportion : 조건이 TRUE일 확률  
+```{r}
+not_cancelled %>%
+  group_by(year, month, day) %>%
+  summarise(n_early = sum(dep_time < 500))
+
+not_cancelled %>%
+  group_by(year, month, day) %>%
+  summarise(hour_prop = mean(arr_delay > 60))
+```
+
+* Grouping by multiple variables
+여러 변수를 기준으로 그룹화하였을 때, summarise 반복시 한 수준의 그룹씩 벗겨진다.
+```{r}
+daily = group_by(flights, year, month, day)
+(per_day = summarise(daily, flights=n())) 
+(per_month = summarise(per_day, flights=sum(flights)))
+(per_year = summarise(per_month, flights=sum(flights)))
+
+#ungroup -> group화 모두 풀린다.
+daily %>% 
+  ungroup() %>% 
+  summarise(flights=n())
+```
+
+
+### Summarise - My turn
+1) Come up with another approach that will give you the same output as not_cancelled %>% count(dest) and not_cancelled %>% count(tailnum, wt = distance) (without using count()).
+```{r}
+not_cancelled = flights %>% filter(!is.na(dep_delay), !is.na(arr_delay))
+```
+
+1-1) not_cancelled %>% count(dest)
+```{r}
+not_cancelled %>% 
+  group_by(dest) %>% 
+  summarise(n())
+```
+
+* group_by를 이용하여 dest별 몇 개의 데이터가 있는지 계산한다.
+
+
+1-2) not_cancelled %>% count(tailnum, wt=distance)
+```{r}
+not_cancelled %>% 
+  group_by(tailnum) %>% 
+  summarise(sum(distance))
+```
+
+* distance 가중치를 주어 count하므로 tailnum별 distance를 모두 더한다.
+
+
+<br/><br/>
+2) Look at the number of canceled flights per day. Is there a pattern? Is the proportion of canceled flights related to the average delay?
+```{r}
+(cancel = flights %>% group_by(year,month, day) %>% 
+  summarise(cancel_n = sum(is.na(dep_delay)|is.na(arr_delay)), 
+            cancel_prop = mean(is.na(dep_delay)|is.na(arr_delay)),
+            average_delay = sum(dep_delay>0|arr_delay>0, na.rm=TRUE)))
+```
+
+* cancel_n = day별 취소 수  
+* cancel_prop = day별 취소 확률  
+* average_delay = day별 평균 delay 횟수  
+<br/><br/>  
+
+```{r}
+cancel %>% ggplot(aes(x=day,y=cancel_n)) + 
+  geom_smooth(se=FALSE) 
+```
+
+* Day별 취소 수 - 대체로 8~12일에 취소 수가 가장 많다.
+
+```{r}
+cancel %>% ggplot(aes(x=average_delay, y=cancel_prop)) +
+  geom_smooth() + geom_point(alpha=0.1)
+```
+
+* 평균 delday수와 cancel 확률 관계 - delay 수가 많을수록 cancel될 확률이 높다.
+
+
+
+3) Which carrier has the worst delays? Challenge: can you disentangle the effects of bad airports vs. bad carriers? Why/why not? (Hint: think about flights %>% group_by(carrier, dest) %>% summarise(n()))
+
+```{r}
+(car =flights %>% group_by(carrier) %>% 
+  summarise(delay_n=sum(arr_delay>0, na.rm=TRUE),
+            delay_prop=mean(arr_delay>0, na.rm=TRUE)) %>% 
+   arrange(desc(delay_n)))
+```
+
+* EV carrier가 가장 delay 횟수가 많았다.
+<br/><br/>
+```{r}
+(des = flights %>% 
+  group_by(carrier, dest, origin) %>% 
+  summarise(n = n(),
+        dest_delay_n = sum(arr_delay>0, na.rm=TRUE),
+        dest_delay_prop = mean(arr_delay>0, na.rm=TRUE)) %>% 
+  arrange(desc(dest_delay_n)))
+```
+
+* origin-destination을 고려하였을 때 delay횟수가 가장 많은 경우는 DL carrier가 LGA에서 ATL로 갈 때로 carrier만을 고려했을 때와는 다른 결과이다.
+  이에 따라 destination을 고려하여 구한 delday가 될 확률과 carrier만을 고려했을 때의 delay가 될 확률을 비교해보도록 하여 두 영향을 구분할 수 있는지 확인해본다.
+
+```{r}
+vs = flights %>% 
+  group_by(carrier) %>%
+  mutate(delay_prop=mean(arr_delay>0, na.rm=TRUE)) %>% ungroup() %>% 
+  group_by(carrier,origin,dest) %>% 
+  mutate(origin.dest_delay_prop = mean(arr_delay>0, na.rm=TRUE)) 
+
+vs %>% 
+  ggplot() +
+  geom_point(mapping=aes(x=dest, y=origin.dest_delay_prop) ,alpha=0.1)  +
+  geom_hline(aes(yintercept=delay_prop),col="red") + facet_wrap(~carrier)
+```
+
+* 위의 그래프를 보면 9E, DL, EV, UA carrier의 경우 origin-destination에 따라 delay가 될 확률이 carrier만 고려하였을 때 delay가 될 확률보다
+  높거나 낮은 경우가 있으므로 어느 정도 구분은 가능하나 나머지느 대체로 carrie만 고려하였을 때의 확률과 유사한 것으로 보여 구분이 어려워 보인다.
+
+
+
+4) Counts the number of flights to a destination and sorts them from highest to lowest.
+```{r}
+flights %>% group_by(dest) %>% 
+  summarise(n=n()) %>% arrange(desc(n))
+```
+
+* ORD에 17283개가 가장 많이 비행기가 도착하였고 LEX와 LGA는 1개로 가장 적게 비행기가 도착하였다. 
+
+
+### Grouped mutates and filters  
+-> group_by를 이용하여 mutate, filter할 수 있다.
+```{r}
+#각 group에서 worst members
+flights_sml %>% 
+  group_by(year,month,day) %>% 
+  filter(rank(desc(arr_delay)) < 10)
+
+#dest별 delay 수가 365보다 큰 경우
+(popular_dests = flights %>% 
+  group_by(dest) %>% 
+  filter(n() > 365))
+
+#dest별 delay 비중 계산
+popular_dests %>% 
+  filter(arr_delay > 0) %>% 
+  mutate(prop_delay=arr_delay/sum(arr_delay)) %>% 
+  select(year:day, dest, arr_delay, prop_delay)
+```
+
+#### Practice myself  
+
+|계산               | group화하지 않았을 경우 | group화한 경우             |
+|:------------------|:------------------------|:---------------------------|
+|평균,lag,lead,cum- | 전체 계산               |group별 계산                |
+|덧셈,나눗셈,log화  | 각각 계산               |group별 계산하지만 결과 동일|
+
+```{r}
+tibble(x=1:9, group=rep(c("a","b","c"), each=3)) %>% 
+  mutate(x_mean = mean(x)) %>%  
+  group_by(group) %>% 
+  mutate(x_mean_2 = mean(x)) 
+
+tibble(x=1:9, group=rep(c("a","b","c"), each=3)) %>% 
+  mutate(y = x+2) %>% 
+  group_by(group) %>% 
+  mutate(z = x+2) 
+
+tibble(x = 1:9,
+       group = rep(c("a", "b", "c"), each = 3)) %>%
+  mutate(y = x %% 2) %>%
+  group_by(group) %>%
+  mutate(z = x %% 2)
+
+tibble(x = 1:9,
+       group = rep(c("a", "b", "c"), each = 3)) %>%
+  mutate(y = log(x)) %>%
+  group_by(group) %>%
+  mutate(z = log(x))
+```
+
+* lag(x) : 앞 순서의 x값  
+* lead(x) : 뒤 순서의 x값  
+```{r}
+tibble(x = 1:9,
+       group = rep(c("a", "b", "c"), each = 3)) %>%
+  mutate(lag_x_notgroup = lag(x), lead_x_notgroup = lead(x)) %>% 
+  group_by(group) %>%
+  mutate(lag_x = lag(x), lead_x = lead(x))
+```
+
+* cumsum : 누적합, cummin: 누적최소값, cummax: 누적최대값, cummean: 누적평균값
+```{r}
+tibble(x = 1:9,
+       group = rep(c("a", "b", "c"), each = 3)) %>%
+  mutate(x_cumsum = cumsum(x)) %>%
+  group_by(group) %>%
+  mutate(x_cumsum_2 = cumsum(x))
+```
+
+* logical comparison(<, <=,>, >=, !=, and ==)은 group_by에 영향을 받지 않는다.
+```{r}
+tibble(x = 1:9,
+       y = 9:1,
+       group = rep(c("a", "b", "c"), each = 3)) %>%
+  mutate(x_lte_y = x <= y) %>%
+  group_by(group) %>%
+  mutate(x_lte_y_2 = x <= y)
+```
+
+* rank(순위 작성)는 전체순위와 group별 순위 따로 작성된다.
+```{r}
+tibble(x = 1:9,
+       group = rep(c("a", "b", "c"), each = 3)) %>%
+  mutate(rnk = min_rank(x)) %>%
+  group_by(group) %>%
+  mutate(rnk2 = min_rank(x))
+```
+
+* arrange(정렬)은 group을 무시하고 기준 변수로 정렬한다.
+```{r}
+tibble(x = runif(9),
+       group = rep(c("a", "b", "c"), each = 3)) %>%
+  group_by(group) %>%
+  arrange(x)
+
+tibble(group = rep(c("a", "b", "c"), each = 3),
+       x = runif(9)) %>%
+  group_by(group) %>%
+  arrange(x) %>%
+  mutate(lag_x = lag(x))
+```
+
+#### Grouped mutates and filters - My turn
+1) Which plane (tailnum) has the worst on-time record?  
+1-1) proportion of flights not delayed or canceled, and
+```{r}
+flights %>%
+  filter(!is.na(tailnum)) %>% 
+  group_by(tailnum) %>% 
+  mutate(prop = mean(arr_delay <=0 & (!is.na(arr_delay)|!is.na(dep_delay))), na.rm=TRUE) %>% 
+  select(tailnum, prop) %>%  arrange(prop)
+```
+
+* prop이 낮을수록 delay나 cancel이 많은 나쁜 plane이다.
+
+1-2) mean arrival delay.
+```{r}
+flights %>% group_by(tailnum) %>% 
+  mutate(arr_delay_mean = mean(arr_delay>0, na.rm=TRUE)) %>% 
+  select(tailnum, arr_delay_mean) %>% arrange(desc(arr_delay_mean))
+```
+
+* arr_delay_mean이 더 높을수록 delay가 많은 나쁜 plane이다.
+
+<br/><br/>
+
+2) What time of day should you fly if you want to avoid delays as much as possible?
+(Hint: The earlier the flight is scheduled, the lower its expected delay.)
+```{r}
+flights = flights %>% 
+  mutate(sched_dep_min = ((sched_dep_time%/%100)*60 + sched_dep_time%%100)%%1440,)
+
+(not = flights %>% 
+  group_by(sched_dep_min) %>%
+  mutate(not_delay = sum(arr_delay<=0, na.rm=TRUE),
+         n = n(), 
+         not_prop = not_delay/n) %>% 
+  select(sched_dep_min, not_delay, n, not_prop) %>% 
+  arrange(desc(not_prop)))
+
+not %>% filter(not_prop==1) %>% 
+  ggplot(aes(x=sched_dep_min)) +
+  geom_histogram(xlim=c(0,1440),binwidth=30)
+```
+
+* 약 300-330 minute, 즉 오전 5시-5시30분에 출발 하는 것이 가장 delay를 피할 수 있다.
+
+
+<br/><br/>
+3-1) For each destination, compute the total minutes of delay.
+```{r}
+dest = flights %>%
+  filter(arr_delay>0) %>%
+  group_by(dest) %>% 
+  mutate(total = sum(arr_delay)) %>% 
+  select(dest,flight,arr_delay, total)
+
+dest %>% arrange(total)
+dest %>% arrange(desc(total))
+```
+
+* total = 각 목적지에 대한 총 delay 시간   
+- 가장 delay가 짧은 곳 = PSP   
+- 가장 delay가 많은 곳 = ATL  
+
+3-2) For each flight, compute the proportion of the total delay for its destination.
+```{r}
+dest %>% 
+  group_by(flight) %>% 
+  mutate(prop = arr_delay/total) %>% 
+  arrange(prop)
+```
+
+* prop = 항공편의 목적지에 대한 delay 비율 
+
+
+
+4) Delays are typically temporally correlated: even once the problem that caused the initial delay has been resolved, later flights are delayed to allow earlier flights to leave. Draw a the scatter plot between mean of dep_delay of flights and the dep_delay of the immediately preceding flight.
+Hint 1: Using lag(), explore how the delay of a flight is related to the delay of the immediately preceding flight. Use lag() to get the info of dep_delay of a previous flight in the same origin. Before using lag(), the data should be ordered by origin, month, day, dep_time.
+Hint 2: group by the dep_delay of the immediately preceding flight and find the mean of dep_delay of current flights.
+```{r}
+corr = flights %>% 
+  select(origin, year, month, day, dep_time, dep_delay) %>% 
+  arrange(origin,year, month, day, dep_time) %>% 
+  group_by(origin) %>% 
+  mutate(lag_dep_delay = lag(dep_delay))
+
+corr %>% 
+  group_by(lag_dep_delay) %>% 
+  mutate(delay_mean = mean(dep_delay, na.rm=TRUE)) %>% 
+  ggplot(mapping=aes(x=lag_dep_delay,y=delay_mean)) +
+  geom_point(alpha=0.1) + geom_smooth()
+```
+
+* 이전 항공편의 출발의 지연과 다음 항공편의 지연의 상관성을 보기 위한 산점도이다.  
+ -> 위의 산점도를 보면, 이전 항공편의 출발이 지연될수록 양의 상관관계로 다음 항공편 또한 지연될 가능성이 높음을 알 수 있다.
+
+
+<br/><br/>
+5) Look at each destination. Can you find flights that are suspiciously fast? (i.e. flights that represent a potential data entry error). Compute the air time of a flight relative to the shortest flight to that destination. Which flights were most delayed in the air?
+Hint: Standardize air time.
+```{r}
+flights %>% 
+  arrange(air_time) %>% 
+  select(year,month,day,air_time, origin, dest, carrier, everything())
+```
+
+* 가장 빠른 비행은 20분이다.
+
+```{r}
+delay = flights %>% 
+  group_by(origin, dest) %>% 
+  mutate(min_air_time = min(air_time, na.rm=TRUE),
+         delay_in_air = air_time - min_air_time,
+         sd_air = sd(air_time, na.rm=TRUE),
+         standardization = delay_in_air/sd_air) %>% 
+  select(air_time, origin, dest, carrier, min_air_time,
+         delay_in_air, sd_air, standardization, everything()) %>% 
+  arrange(origin,dest)
+
+delay %>% 
+  ggplot(aes(standardization)) + 
+  geom_boxplot(aes(colour= carrier))
+
+```
+
+* 각 carrier마다 가장 짧은 비행을 기준으로 air_time을 표준화한 결과이다.  
+ -> 시각적으로 보았을 때 US 항공편이 air_time이 가장 지연되었음을 알 수 있다.
+
+
+
+6) Find all destinations that are flown by at least two carriers. Use that information to rank the carriers.
+```{r}
+car = flights %>% 
+  group_by(dest) %>% 
+  filter(length(unique(carrier))>=2)
+car %>% 
+  group_by(dest) %>% 
+  summarise(carrier_n = length(unique(carrier)))
+```
+
+* carrier가 2개 이상으로 비행하는 목적지는 위와 같다.
+
+```{r}
+car %>% 
+  group_by(carrier) %>%
+  summarise(dest_n=length(unique(dest))) %>% 
+  arrange(desc(dest_n))
+```
+
+* 각 carrier마다 비행하는 목적지의 수를 구하고 이를 가장 많은 순부터 나열하였다.    
+ -> 이에 따르면 EV carrier가 가장 많은 목적지로 가는 carrier로 순위가 가장 높음을 알 수 있다. 
+
+### 기타
+* 주의해야할 점 
+1:3 * 1:10 => 잘못된 계산(실제 계산된 값을 보고 틀렸는지 확인 필요함)
+
+* Comparisons operations
+```{r}
+sqrt(2)^2 ==2 #FALSE
+near(sqrt(2)^2,2) #TRUE
+
+(x = factor(c("a", "b", "c")))
+x=="a" #TRUE 1개 존재 -> TRUE FALSE FALSE
+sum(x!="a") #a가 아닌것 2개 존재 -> 2
+```
+
+* Logical operators( &:and, |:or )
+```{r}
+nov_dec = filter(flights, month %in% c(11,12)) # %in%:or
+filter(flights, month==11|month==12) %>% head(5)
+
+# !(x&y) : !x|!y , !(x|y) : !x&!y
+filter(flights, !(arr_delay > 120 | dep_delay >120))
+filter(flights, arr_delay <= 120, dep_delay <= 120)
+```
+
+* Missing values
+- missing vlaues 포함한 연산 처리시, 모두 NA 처리가 된다.
+```{r}
+NA > 5
+10 == NA
+NA +10
+
+x= c(1,2,NA)
+is.na(x)
+sum(is.na(x))
+
+#condition이 true일때만 na를 보여줌
+df= tibble(x=c(1,NA,3)) 
+filter(df, x>1)
+filter(df, is.na(x)|x>1)
+```
+

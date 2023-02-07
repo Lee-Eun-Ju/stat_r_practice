@@ -1,0 +1,92 @@
+---
+title: "Statistic Calculate Method"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## HW3 201811526 이은주
+```{r echo=FALSE}
+library(nycflights13)
+library(tidyverse)
+data(flights)
+```
+
+### 1. arrange() - p.18
+(1) How could you use arrange() to sort all missing values (in dep_time) to the start?
+```{r}
+arrange(flights, desc(is.na(dep_time)))
+```
+is.na(dep_time) : NA는 TRUE(1)로 인식하고, NA가 아닌 경우 FALSE(0)로 인식한다.  
+이때, 내림차순 정렬을 하여 1(NA)부터 정렬한다.
+
+\pagebreak
+
+(2) Sort flights to find the most delayed flights. Find the flights that left earliest.
+```{r}
+flights %>% arrange(desc(dep_delay))
+flights %>% arrange(dep_delay)
+```
+내림차순 정렬(desc)을 통해 가장 지연된 비행기부터 정렬할 수 있다.  
+오름차순 정렬에 따르면 가장 일찍 떠난 비행기는 97번이다.
+
+\pagebreak
+
+(3) Sort flights to find the fastest (highest speed) flights.
+```{r}
+flights %>% arrange(air_time) %>% select(air_time, flight, everything())
+```
+4368, 4631 flight이 air_time이 20분으로 fatest flights이다.
+
+\pagebreak
+
+(4) Which flights traveled the farthest? Which traveled the shortest?
+```{r}
+(fli_dist = flights %>% arrange(distance) %>% select(distance, flight, everything()))
+fli_dist[1,] #shortest
+fli_dist[dim(fli_dist)[1],] #farthest
+```
+shortest flight : 1632, farthest flight : 51
+
+\pagebreak
+
+### 2. select() - p.22
+(1) 
+```{r}
+flights %>% select(dep_time, dep_delay, arr_time, arr_delay)
+flights %>% select(starts_with("dep"), starts_with("arr"))
+flights %>% select(matches("dep_(.)"), matches("arr_(.)"))
+```
+
+\pagebreak
+
+(2) What happens if you include the name of a variable multiple times in a select() call?
+```{r}
+flights %>% select(dep_time, arr_time, dep_time)
+```
+반복하여 변수명을 포함할 시, 뒤의 변수는 무시한다.
+
+
+(3) What does the one_of() function do? Why might it be helpful in conjunction with this vector?
+```{r}
+?select #all_of(), any_of()
+vars <- c("year", "month", "day", "dep_delay", "arr_delay")
+flights %>% select(one_of(vars))
+```
+all_of, any_of : Matches variable names in a character vector  
+one_of : all_of, any_of의 상위버전
+
+\pagebreak
+
+(4) Does the result of running the following code surprise you? How do the select helpers deal with case by default? How can you change that default?
+```{r}
+select(flights, contains("time"))
+select(flights, contains("TIME"))
+select(flights, contains("TIME", ignore.case=FALSE))
+```
+select()는 변수명의 대문자, 소문자 구분을 하지 않는다.  
+이때, inore.case=FALSE 옵션을 추가하면 대소문자를 구분한다.
+
+

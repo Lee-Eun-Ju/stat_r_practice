@@ -1,0 +1,125 @@
+---
+title: "SCM0316"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## data
+
+```{r data}
+library(tidyverse)
+diamonds
+```
+
+## geom_bar
+
+```{r echo=FALSE}
+ggplot(data=diamonds) +
+  geom_bar(mapping=aes(x=cut))
+```
+
+## stat_summary
+
+```{r}
+ggplot(data=diamonds) +
+  stat_summary(
+    mapping = aes(x=cut,y=depth),
+    fun.ymin = min,
+    fun.ymax = max,
+    fun.y = median
+  )
+```
+
+```{r}
+d= ggplot(mtcars, aes(cyl,mpg)) + geom_point()
+d + stat_summary(fun.y="mean", colour="red", shape=3,
+                 geom="point")
+```
+
+## my turn
+```{r}
+#1
+
+#2 
+ggplot(data=diamonds) +
+  geom_bar(mapping = aes(x=cut, y=..prop..))
+ggplot(data=diamonds) +
+  geom_bar(mapping = aes(x=cut, y=..prop.., group=1))
+
+#3
+ggplot(data=diamonds)+
+  geom_bar(mapping=aes(x=cut, fill=color, y=..prop..))
+#각 color별 percent알 수 있다
+ggplot(data=diamonds)+
+  geom_bar(aes(x=cut,y=..count../sum(..count..),fill=color))
+
+```
+
+## position adjustments
+```{r}
+ggplot(data=diamonds) +
+   geom_bar(mapping=aes(x=cut, colour=cut)) #boundary
+
+ggplot(data=diamonds) +
+   geom_bar(mapping=aes(x=cut, fill=cut))
+
+ggplot(data=diamonds) +
+   geom_bar(mapping=aes(x=cut, colour=cut))
+```
+
+##my turn
+```{r}
+# 각group별 boxplot 따로 따로
+ggplot(data=mpg, aes(x=drv, y=hwy, colour=class)) +
+   geom_boxplot()
+
+# 각 group별 상자그림 겹쳐져서 확인 - drv별 전체 분포를 알기 쉽ㄷ
+ggplot(data=mpg, aes(x=drv, y=hwy, colour=class)) +
+   geom_boxplot(position = "identity")
+```
+
+## coordinate systems
+```{r}
+#x,y축 뒤집어줌
+ggplot(data=mpg, aes(x=class, y=hwy)) +
+   geom_boxplot()+ coord_flip()
+```
+
+## maps packages
+```{r}
+library(maps)
+
+#coord_quickmap - 그림을 알맞게 조정
+
+
+#coord_polar - 원형으로 퍼지는 형태
+```
+
+## my turn
+```{r}
+#1 데이터에 따라 무슨 형태의 그림으로 보여줄지 생각해볼 필요 
+#drv에 대해서만 그래프 그릴 수 있다(factor(1))
+ggplot(mpg, aes(x=factor(1), fill=drv)) +
+  geom_bar() + coord_polar()
+
+#pie-chart형태
+ggplot(mpg, aes(x=factor(1), fill=drv)) +
+  geom_bar(width=1) + coord_polar(theta='y')
+
+#이그림은 되도록 안그리는게 좋음
+ggplot(mpg, aes(x=factor(1), fill=drv)) +
+  geom_bar(width=1) + coord_polar()
+
+#2 xlab(),ylab(),ggtitle()로 적어도 됨
+ggplot(data=mpg, mapping=aes(x=class, y=hwy)) +
+  geom_boxplot() + coord_flip() +
+  labs(y="Highway MPG",
+       x="Class",
+       title="Highway MPG by car class",
+       subtitle = "1999-2008",
+       caption="Source: http://fueleconomy.gov")
+```
+

@@ -1,0 +1,76 @@
+---
+title: "Trial"
+author: "EunJu Lee"
+date: "2021-03-02"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## R Markdown
+<!-- 이부분은 표시되지 않는다(shift+ctrl+c) -->
+한글로 보고서=> html형식은 가능하나 pdf형식은 불가능(오류)  
+또는 html-> open in browser-> pdf로 인쇄
+
+This is an **R Markdown** document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure) 
+```
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent **printing** of the R code that generated the plot.
+
+## Including dataframe
+```{r, echo=FALSE}
+#echo=FALSE는 코드X 결과O
+A = c("a","a", "b","b")
+B = c(5,10,15,20)
+dataframe= data.frame(A,B)
+#plot(dataframe)
+```
+
+## Load the .csv file
+```{r, eval=FALSE}
+#eval=FALSE는 r코드는 쓰지만, 코드만 보여주고 작동(계산)시키지 않는다.  
+dataframe = read.csv("~~")
+```
+
+```{r, include =FALSE}
+#include=FALSE는코드를 아예 사용하지 않는다.  
+dataframe = data.frame(A,B)
+#plot(dataframe)
+```
+
+## Kable() function from knitr packages
+```{r}
+library(knitr)
+kable(dataframe, digits=2)
+```
+
+## Malnually creating tables
+|Plant|Temp|Growth|
+|:----|:---:|----:|
+|A    |20   |40   |
+
+I'm `happy`.  
+I'm *happy*.
+
+
+
+
+
+

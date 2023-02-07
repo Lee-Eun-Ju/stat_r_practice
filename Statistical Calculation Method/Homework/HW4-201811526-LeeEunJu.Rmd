@@ -1,0 +1,284 @@
+---
+title: "Statistic Calculate Method"
+output: html_document 
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE , warning=FALSE, fig.width=6, fig.height=4)
+```
+
+<div align="right">
+#### HW3 201811526 이은주
+</div>
+```{r }
+library(tidyverse)
+library(nycflights13)
+```
+<br/>
+
+### p.50 - p.51  
+1) Come up with another approach that will give you the same output as not_cancelled %>% count(dest) and not_cancelled %>% count(tailnum, wt = distance) (without using count()).
+```{r}
+not_cancelled = flights %>% filter(!is.na(dep_delay), !is.na(arr_delay))
+```
+
+1-1) not_cancelled %>% count(dest)
+```{r}
+not_cancelled %>% 
+  group_by(dest) %>% 
+  summarise(n())
+```
+
+* group_by를 이용하여 dest별 몇 개의 데이터가 있는지 계산한다.
+
+
+1-2) not_cancelled %>% count(tailnum, wt=distance)
+```{r}
+not_cancelled %>% 
+  group_by(tailnum) %>% 
+  summarise(sum(distance))
+```
+
+* distance 가중치를 주어 count하므로 tailnum별 distance를 모두 더한다.
+
+\pagebreak
+
+<br/><br/>
+2) Look at the number of canceled flights per day. Is there a pattern? Is the proportion of canceled flights related to the average delay?
+```{r}
+(cancel = flights %>% group_by(year,month, day) %>% 
+  summarise(cancel_n = sum(is.na(dep_delay)|is.na(arr_delay)), 
+            cancel_prop = mean(is.na(dep_delay)|is.na(arr_delay)),
+            average_delay = sum(dep_delay>0|arr_delay>0, na.rm=TRUE)))
+```
+
+* cancel_n = day별 취소 수  
+* cancel_prop = day별 취소 확률  
+* average_delay = day별 평균 delay 횟수  
+<br/><br/>  
+
+```{r}
+cancel %>% ggplot(aes(x=day,y=cancel_n)) + 
+  geom_smooth(se=FALSE) 
+```
+
+* Day별 취소 수 - 대체로 8~12일에 취소 수가 가장 많다.
+
+```{r}
+cancel %>% ggplot(aes(x=average_delay, y=cancel_prop)) +
+  geom_smooth() + geom_point(alpha=0.1)
+```
+
+* 평균 delday수와 cancel 확률 관계 - delay 수가 많을수록 cancel될 확률이 높다.
+
+\pagebreak
+
+
+3) Which carrier has the worst delays? Challenge: can you disentangle the effects of bad airports vs. bad carriers? Why/why not? (Hint: think about flights %>% group_by(carrier, dest) %>% summarise(n()))
+
+```{r}
+(car =flights %>% group_by(carrier) %>% 
+  summarise(delay_n=sum(arr_delay>0, na.rm=TRUE),
+            delay_prop=mean(arr_delay>0, na.rm=TRUE)) %>% 
+   arrange(desc(delay_n)))
+```
+
+* EV carrier가 가장 delay 횟수가 많았다.
+<br/><br/>
+```{r}
+(des = flights %>% 
+  group_by(carrier, dest, origin) %>% 
+  summarise(n = n(),
+        dest_delay_n = sum(arr_delay>0, na.rm=TRUE),
+        dest_delay_prop = mean(arr_delay>0, na.rm=TRUE)) %>% 
+  arrange(desc(dest_delay_n)))
+```
+
+* origin-destination을 고려하였을 때 delay횟수가 가장 많은 경우는 DL carrier가 LGA에서 ATL로 갈 때로 carrier만을 고려했을 때와는 다른 결과이다.
+  이에 따라 destination을 고려하여 구한 delday가 될 확률과 carrier만을 고려했을 때의 delay가 될 확률을 비교해보도록 하여 두 영향을 구분할 수 있는지 확인해본다.
+
+```{r}
+vs = flights %>% 
+  group_by(carrier) %>%
+  mutate(delay_prop=mean(arr_delay>0, na.rm=TRUE)) %>% ungroup() %>% 
+  group_by(carrier,origin,dest) %>% 
+  mutate(origin.dest_delay_prop = mean(arr_delay>0, na.rm=TRUE)) 
+
+vs %>% 
+  ggplot() +
+  geom_point(mapping=aes(x=dest, y=origin.dest_delay_prop) ,alpha=0.1)  +
+  geom_hline(aes(yintercept=delay_prop),col="red") + facet_wrap(~carrier)
+```
+
+* 위의 그래프를 보면 9E, DL, EV, UA carrier의 경우 origin-destination에 따라 delay가 될 확률이 carrier만 고려하였을 때 delay가 될 확률보다
+  높거나 낮은 경우가 있으므로 어느 정도 구분은 가능하나 나머지느 대체로 carrie만 고려하였을 때의 확률과 유사한 것으로 보여 구분이 어려워 보인다.
+
+\pagebreak
+
+
+4) Counts the number of flights to a destination and sorts them from highest to lowest.
+```{r}
+flights %>% group_by(dest) %>% 
+  summarise(n=n()) %>% arrange(desc(n))
+```
+
+* ORD에 17283개가 가장 많이 비행기가 도착하였고 LEX와 LGA는 1개로 가장 적게 비행기가 도착하였다. 
+
+\pagebreak
+
+
+### p.65 - p.69
+1) Which plane (tailnum) has the worst on-time record?  
+1-1) proportion of flights not delayed or canceled, and
+```{r}
+flights %>%
+  filter(!is.na(tailnum)) %>% 
+  group_by(tailnum) %>% 
+  mutate(prop = mean(arr_delay <=0 & (!is.na(arr_delay)|!is.na(dep_delay))), na.rm=TRUE) %>% 
+  select(tailnum, prop) %>%  arrange(prop)
+```
+
+* prop이 낮을수록 delay나 cancel이 많은 나쁜 plane이다.
+
+1-2) mean arrival delay.
+```{r}
+flights %>% group_by(tailnum) %>% 
+  mutate(arr_delay_mean = mean(arr_delay>0, na.rm=TRUE)) %>% 
+  select(tailnum, arr_delay_mean) %>% arrange(desc(arr_delay_mean))
+```
+
+* arr_delay_mean이 더 높을수록 delay가 많은 나쁜 plane이다.
+
+\pagebreak
+<br/><br/>
+
+2) What time of day should you fly if you want to avoid delays as much as possible?
+(Hint: The earlier the flight is scheduled, the lower its expected delay.)
+```{r}
+flights = flights %>% 
+  mutate(sched_dep_min = ((sched_dep_time%/%100)*60 + sched_dep_time%%100)%%1440,)
+
+(not = flights %>% 
+  group_by(sched_dep_min) %>%
+  mutate(not_delay = sum(arr_delay<=0, na.rm=TRUE),
+         n = n(), 
+         not_prop = not_delay/n) %>% 
+  select(sched_dep_min, not_delay, n, not_prop) %>% 
+  arrange(desc(not_prop)))
+
+not %>% filter(not_prop==1) %>% 
+  ggplot(aes(x=sched_dep_min)) +
+  geom_histogram(xlim=c(0,1440),binwidth=30)
+```
+
+* 약 300-330 minute, 즉 오전 5시-5시30분에 출발 하는 것이 가장 delay를 피할 수 있다.
+
+\pagebreak
+
+<br/><br/>
+3-1) For each destination, compute the total minutes of delay.
+```{r}
+dest = flights %>%
+  filter(arr_delay>0) %>%
+  group_by(dest) %>% 
+  mutate(total = sum(arr_delay)) %>% 
+  select(dest,flight,arr_delay, total)
+
+dest %>% arrange(total)
+dest %>% arrange(desc(total))
+```
+
+* total = 각 목적지에 대한 총 delay 시간 - 가장 delay가 짧은 곳 = PSP  
+                                         - 가장 delay가 많은 곳 = ATL
+
+3-2) For each flight, compute the proportion of the total delay for its destination.
+```{r}
+dest %>% 
+  group_by(flight) %>% 
+  mutate(prop = arr_delay/total) %>% 
+  arrange(prop)
+```
+
+* prop = 항공편의 목적지에 대한 delay 비율 
+
+\pagebreak
+
+
+4) Delays are typically temporally correlated: even once the problem that caused the initial delay has been resolved, later flights are delayed to allow earlier flights to leave. Draw a the scatter plot between mean of dep_delay of flights and the dep_delay of the immediately preceding flight.
+Hint 1: Using lag(), explore how the delay of a flight is related to the delay of the immediately preceding flight. Use lag() to get the info of dep_delay of a previous flight in the same origin. Before using lag(), the data should be ordered by origin, month, day, dep_time.
+Hint 2: group by the dep_delay of the immediately preceding flight and find the mean of dep_delay of current flights.
+```{r}
+corr = flights %>% 
+  select(origin, year, month, day, dep_time, dep_delay) %>% 
+  arrange(origin,year, month, day, dep_time) %>% 
+  group_by(origin) %>% 
+  mutate(lag_dep_delay = lag(dep_delay))
+
+corr %>% 
+  group_by(lag_dep_delay) %>% 
+  mutate(delay_mean = mean(dep_delay, na.rm=TRUE)) %>% 
+  ggplot(mapping=aes(x=lag_dep_delay,y=delay_mean)) +
+  geom_point(alpha=0.1) + geom_smooth()
+```
+
+* 이전 항공편의 출발의 지연과 다음 항공편의 지연의 상관성을 보기 위한 산점도이다.  
+ -> 위의 산점도를 보면, 이전 항공편의 출발이 지연될수록 양의 상관관계로 다음 항공편 또한 지연될 가능성이 높음을 알 수 있다.
+
+\pagebreak
+
+<br/><br/>
+5) Look at each destination. Can you find flights that are suspiciously fast? (i.e. flights that represent a potential data entry error). Compute the air time of a flight relative to the shortest flight to that destination. Which flights were most delayed in the air?
+Hint: Standardize air time.
+```{r}
+flights %>% 
+  arrange(air_time) %>% 
+  select(year,month,day,air_time, origin, dest, carrier, everything())
+```
+
+* 가장 빠른 비행은 20분이다.
+
+```{r}
+delay = flights %>% 
+  group_by(origin, dest) %>% 
+  mutate(min_air_time = min(air_time, na.rm=TRUE),
+         delay_in_air = air_time - min_air_time,
+         sd_air = sd(air_time, na.rm=TRUE),
+         standardization = delay_in_air/sd_air) %>% 
+  select(air_time, origin, dest, carrier, min_air_time,
+         delay_in_air, sd_air, standardization, everything()) %>% 
+  arrange(origin,dest)
+
+delay %>% 
+  ggplot(aes(standardization)) + 
+  geom_boxplot(aes(colour= carrier))
+
+```
+
+* 각 carrier마다 가장 짧은 비행을 기준으로 air_time을 표준화한 결과이다.  
+ -> 시각적으로 보았을 때 US 항공편이 air_time이 가장 지연되었음을 알 수 있다.
+
+\pagebreak
+
+
+6) Find all destinations that are flown by at least two carriers. Use that information to rank the carriers.
+```{r}
+car = flights %>% 
+  group_by(dest) %>% 
+  filter(length(unique(carrier))>=2)
+car %>% 
+  group_by(dest) %>% 
+  summarise(carrier_n = length(unique(carrier)))
+```
+
+* carrier가 2개 이상으로 비행하는 목적지는 위와 같다.
+
+```{r}
+car %>% 
+  group_by(carrier) %>%
+  summarise(dest_n=length(unique(dest))) %>% 
+  arrange(desc(dest_n))
+```
+
+* 각 carrier마다 비행하는 목적지의 수를 구하고 이를 가장 많은 순부터 나열하였다.    
+ -> 이에 따르면 EV carrier가 가장 많은 목적지로 가는 carrier로 순위가 가장 높음을 알 수 있다. 
+

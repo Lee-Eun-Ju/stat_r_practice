@@ -1,0 +1,299 @@
+---
+title: "SCM_0406"
+author: "LEE EUN JU"
+date: "2021년 4월 6일"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Tidy data
+어떤 형태로 데이터를 만들 것인가에 대한 문제
+-> 주먹구구식으로 데이터 다루는 것이 아니라 효율적으로 다루기 위한 data
+
+변수 : 하나의 column
+관측치 : row
+하나의 관측단위가 하나의 table(오늘실험한 후 내일 실험한것 새로 table만드는 것이 아니라 같은 하나의 table로 만든다.)
+
+[messy한 데이터]
+option1 -> 열이 변수명이 아니라 관측한 값이다.(treatmenta, treatmentb)
+한컬럼에 여러 변수 저장된 것도 문제
+불필요한 정보가 많은 경우-> cm단위열, mm단위열
+
+temperature-> 하나의 정보이므로 하나의 column나열
+city또한 하나의 정보가 ㄱ진 변수이다.
+```{r}
+week = c(1,1,1,2,2,2,3,3,3,4,4,4)
+city = c("city_A", "city_B","city_C")
+data = data.frame(week, rep(city,4))
+```
+
+keyvariable-> treatment,patient(unique한 combination을 만든다-> key들이 나열되있어야 한다)
+measurement variable-> score
+
+
+```{r}
+library(tidyverse)
+library(reshape2)
+data(french_fries)
+french_fries %>% head()
+summary(french_fries) #oil-> potato,buttery,grassy,rancid,painty 5가지  하나의 column이 되어야 한ㄷ
+```
+key -> time/treatment, subject, rep, oil
+
+##Gater/Pivot to long 
+long format(tidy)가 되도로
+```{r}
+ffm = french_fries %>% 
+  pivot_longer(cols=potato:painty,
+               names_to = "scale", #scale이라는 변수에 potato~painty열을 나열하고
+               values_to="score") #그 value값은 score로
+```
+
+untidy(wide)하게 하도록 -> rep의 1,2에 따른 그림 그려보도록 하기 위해 
+```{r}
+ffm = ffm %>% 
+  pivot_wider(names_from = rep, #scale이라는 변수에 potato~painty열을 나열하고
+               values_from=score)
+```
+#spread로도 가능하지만 pivot_wider 추천
+
+똑같은 상황에반 ㅂ복해서 실험한다면 같은 결곽가 나올거라고 예상하지만
+그림을 보았을 때는, 차이가 있다.(왜? 온도의 변화가 있지 않을까)
+
+```{r}
+ffm %>% 
+  ggplot(aes(x=`1`, y=`2`)) + geom_point() +
+  facet_wrap(~scale) + geom_abline(colour="grey50") #grey1~99까지로 정도를 정할 수 있다.
+```
+
+#my turn
+```{r}
+data("french_fries")
+head(french_fries)
+ffm = french_fries %>% 
+  pivot_longer(cols=potato:painty,
+               names_to = "scale", 
+               values_to="score")
+
+unique(ffm$time)
+ffm = ffm %>% 
+  pivot_wider(names_from=time, values_from=score)
+
+ffm %>% ggplot(aes(x=`1`,y=`10`)) +
+  geom_point(aes(color=subject, shape=factor(rep))) +facet_grid(treatment~scale)
+```
+## Homework 있다
+
+separate-> 한열에 많은 정보있는 것도 안된다 나누기필요
+non  alphanumeric character을 기준으로 알아서 나눠줄도 있지만 지정도 가능
+```{r}
+table3
+
+table3 %>%
+  separate(rate, into = c("cases", "population"))
+table3 %>%
+  separate(rate, into = c("cases", "population"), sep = "/")
+
+table3 %>%
+separate(rate, into = c("cases", "population"), convert = TRUE) #conver=TRUE 알아서 맞는 데이터형태를 맞춘다-integer형태로 들어간다.
+
+table3 %>%
+separate(year, into = c("century", "year"), sep = 2) #앞에 두번째에서 끊겠다.
+```
+
+unit - 분리된걸 합칠때
+```{r}
+table5 %>%
+  unite(new, century, year) #default값이 _로 연결한다.
+
+table5 %>%
+unite(new, century, year, sep = "") #바로연결하고자할때 ""
+```
+
+
+My turn
+```{r}
+tibble(x=c("a,b,c", "d,e,f,g", "h,i,j") ) %>%  #4개 -> g가 탈락
+  separate(x, c("one", "two", "three"))
+
+tibble(x=c("a,b,c", "d,e,f,g", "h,i,j") ) %>%  #4개 -> g가 탈락
+  separate(x, c("one", "two", "three"), extra="drop")
+
+tibble(x=c("a,b,c", "d,e,f,g", "h,i,j") ) %>%  #4개 -> g가 탈락
+  separate(x, c("one", "two", "three"), extra="merge") #f,g가 합쳐서 나온다.
+
+tibble(x=c("a,b,c","d,e","f,g,i")) %>% #2개 -> NA
+  separate(x, c("one","two","three"))
+
+tibble(x=c("a,b,c","d,e","f,g,i")) %>% #2개 -> NA
+  separate(x, c("one","two","three"), fill="left") #right: 오른쪽 값을 가져오것 ㄱ
+```
+
+
+
+
+
+
+missing valus
+```{r}
+stocks <- tibble(
+year = c(2015, 2015, 2015, 2015, 2016, 2016, 2016), #2016년 1분기 빠지 -> implicitly것 -> explicity하게 만들어한 ㅎ다
+qtr = c( 1, 2, 3, 4, 2, 3, 4),
+return = c(1.88, 0.59, 0.35, NA, 0.92, 0.17, 2.66) #missing짐 -> explicity(눈에 보이는 missing)
+)
+
+stocks %>%
+pivot_wider(names_from = year, values_from = return)
+
+stocks %>%
+pivot_wider(names_from = year, values_from = return) %>% #모두 explicity하게 보였다가
+pivot_longer(
+cols = c(`2015`, `2016`),
+names_to = "year",
+values_to = "return",
+values_drop_na = TRUE #NA값 떨어뜨리기
+)
+
+stocks %>% nrow()
+stocks %>%
+  complete(year, qtr) %>% nrow() #yeqr, qtr의 unique한 값을 보고 무엇이 빠졌는지 알아확 ㅎ이낳여 NA처리
+
+treatment <- tribble(
+~ person, ~ treatment, ~response,
+"Derrick Whitmore", 1, 7,
+NA, 2, 10, #Derrick 이 반복되는 것을 NA로 처리
+NA, 3, 9,
+"Katherine Burke", 1, 4
+)
+
+treatment %>%
+fill(person) #person에 대해서 같은이름 아래있 ㅇ는 NA 채워줌
+
+```
+
+```{r}
+stocks <- tibble(
+  year = c(2015, 2015, 2015, 2015, 2016, 2016, 2016),
+  qtr = c( 1, 2, 3, 4, 2, 3, 4),
+  return = c(1.88, 0.59, 0.35, NA, 0.92, 0.17, 2.66)
+)
+
+stocks %>%
+pivot_wider(names_from = year, values_from = return,
+            values_fill = list(return = 0)) #implicity한 값만 0,  explicity한 값은 NA처리-> NA모든 연산에 포함하지 않느다.
+stocks %>% 
+  complete(year, qtr,fill=list(return=0)) #tidy한 data로 설정, NA값은 0 처리
+
+```
+
+
+
+```{r}
+
+
+who #iso2,iso3-같은 정보, new 하나벼수와 ㅇ야한다
+who1 = who %>% pivot_longer(cols=new_sp_m014:newrel_f65,
+                            names_to="scale",
+                            values_to="score",
+                            values_drop_na=TRUE) #NA가 많은 이유
+summary(who1)
+
+```
+
+
+
+gather first
+```{r}
+who1 <- who %>%
+pivot_longer(
+cols = new_sp_m014:newrel_f65,
+names_to = "key", #give a generic name
+values_to = "cases", # count of cases
+values_drop_na = TRUE # drop the missing values
+)
+who1
+
+who1 %>%
+count(key) #key별로 개수가 다르다
+
+
+
+```
+
+minor fix
+```{r}
+who2 <- who1 %>%
+  mutate(key = stringr::str_replace(key, "newrel", "new_rel")) #key변수에 값이 newrel이 있으면 저렇게 바꾼다.
+who2
+unique(who2$key)
+```
+
+```{r}
+who3 = who2 %>% 
+  separate(key, c("new","type","sexage"))
+who4 = who3 %>% 
+  select(-iso2, -iso3, -new)
+
+who5 = who4 %>% 
+  separate(sexage, c("sex", "age"), sep=1) #첫번째 글자에서 자른다.
+```
+
+#my turn
+```{r}
+who1 %>% 
+  filter(cases==0) %>% 
+  nrow()
+
+pivot_longer(who, c(new_sp_m014:newrel_f65, )
+             
+group_by(country,year) %>% 
+  mutate(prop_missing = )
+
+#여집합-> 전체집합에서 집합 ㄱ것
+anti_join(complete(who,country, year), who, by=c)
+```
+
+```{r}
+#2
+who3 = who %>%
+  pivot_longer(
+   cols = new_sp_m014:newrel_f65,
+   names_to = "key", #give a generic name
+   values_to = "cases", # count of cases
+   values_drop_na = TRUE # drop the missing values
+   ) %>%
+  mutate(key = stringr::str_replace(key, "newrel", "new_rel"))%>% 
+  separate(key, c("new","type","sexage"))
+
+who3 %>% 
+  group_by(country) %>% 
+  summarise(iso2_n=length(unique(iso2)), iso3_n=length(unique(iso3))) 
+
+who3 %>% select(country, iso2, iso3) %>% 
+  distinct() %>% 
+   group_by(country) %>% 
+  filter(n()>1)
+
+#3
+who5 %>% 
+  group_by(country, year, sex) %>% 
+  filter(year>1995) %>% 
+  summarise(cases=sum(cases)) %>% 
+  unite(country_sex, country, sex, remove=FALSE) %>% 
+  ggplot(aes(x=year, y=cases, group=country_sex, colour=sex)) + geom_line()
+```
+
+
+
+
+
+
+
+
+
+
+
+

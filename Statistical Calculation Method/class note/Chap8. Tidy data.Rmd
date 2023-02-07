@@ -1,0 +1,359 @@
+ ---
+title: "Chap8. Tidy data"
+author: "LEE EUN JU"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE)
+```
+
+#### Library  
+```{r}
+library(tidyverse)
+library(gridExtra)
+library(tidyr)
+library(reshape2)
+```
+
+### Tidy data  
+*주먹구구식으로 데이터를 다루는 것이 아니라 효율적으로 data를 다루기 위해 어떤 형태로 만들어야 하는 가?  
+=> Tidy data (3가지 조건을 만족해야 한다.)  
+   : 각 변수는 하나의 column으로 이루어져야 한다.  
+   : 각 관측치는 하나의 행으로 형성된다.  
+   : 하나의 관측 단위가 하나의 table에 형성되어야 한다.  
+     (ex. 오늘 실험한 후, 내일 실험한 것을 새로 table만드는 것이 아니라 같은 하나의 table로 만든다.)  
+
+=> vs messy한 데이터   
+   : 변수의 종류가 column이 되서는 안된다.(ex.treatmenta, treatmentb -> treatment의 한 종류이다)  
+   : 한 column에 여러 변수 저장된 것도 문제이다.  
+   : 불필요한 정보가 많은 경우도 문제이다. (ex.cm단위열, mm단위열)  
+   
+*key variable : treatment, patient 등 (unique한 combination을 만들어 key들이 나열되있도록 하여야 한다)  
+*measurement variable : score  
+
+Ex. messy data  
+```{r}
+#week city_A city_B city_C
+# 1 14 18 23
+# 2 15 21 24
+# 3 12 25 23
+# 4 13 17 25
+
+#city 또한 하나의 정보를 가진 변수이다.
+week = c(1,1,1,2,2,2,3,3,3,4,4,4)
+city = c("city_A", "city_B","city_C")
+temperature = c(14,18,23,15,21,24,12,25,23,13,17,25)
+(data = data.frame(week, rep(city,4), temperature))
+```
+
+#### French_fries  
+```{r}
+data(french_fries)
+french_fries %>% head()
+summary(french_fries) #oil-> 
+```  
+* oil : potato,buttery,grassy,rancid,painty 5가지의 oil 종류는 하나의 column이 되어야 한다.  
+* key ->  time/treatment, subject, rep, oil  
+
+
+### Gather/Pivot to long  
+
+1. tidy data가 되도록 (long format)  
+```{r}
+ffm = french_fries %>% 
+  pivot_longer(cols=potato:painty,
+               names_to = "scale", #scale이라는 변수에 potato~painty열을 나열하고
+               values_to="score") #그 value값은 score로
+```
+
+* pivot_longer(cols, names_to="A", values_to="B")  
+  : 각 열들(cols)을 A에 나열하고 그 value값은 B에 작성  
+
+
+2. untidy data가 되도록(wide format)  
+-> 변수 내의 범주별 관계를 알아보기 위해 주로 사용  
+```{r}
+fffm %>% pivot_wider(names_from = rep, values_from=score)
+ffm %>% spread(key = rep, value = score)
+```
+
+* pivot_wider(names_from=A, values_from=B) : A변수의 범주를 열로 생성하고 이 때, 값은 B변수로 한다 -> 추천!
+* spread(key=A, value=B) : pivot_wider과 동일하다
+
+
+//똑같은 상황에서 반복실험 시, 같은 결과가 나올 것이라고 예상 -> 실제로는? 
+```{r}
+ffm %>% 
+  spread(key=rep, value=score) %>% 
+  ggplot(aes(x=`1`, y=`2`)) + geom_point() +
+  facet_wrap(~scale) + geom_abline(colour="grey50") #grey1~99: 진하기 정도 지정 가능
+```
+=> 실제로는 rep 1,2에 따라 차이가 있어 보인다. 이는 온도의 변화 등의 요인이 있지 않았을까에 대한 의심이 든다.
+
+
+
+#### my turn  
+1) Use gather or pivot_longer from the tidyr package to combine the different scales for assessing french fries into a single variable. Call the key-value pair “scale” and “score”.
+```{r}
+data("french_fries")
+head(french_fries)
+ffm = french_fries %>% 
+  pivot_longer(cols=potato:painty,
+               names_to = "scale", 
+               values_to="score")
+```
+
+2) Use spread or pivot_wider from the tidyr package to get a format in which you can directly compare values from week 1 to week 10.
+```{r}
+unique(ffm$time)
+ffm_week = ffm %>% 
+  pivot_wider(names_from=time, values_from=score)
+```
+
+3) Plot a scatter plot of values in week 1 against week 10. Facet by treatment and scale, color by individuals and use different shapes for the replicates. Is there a pattern visible?
+```{r}
+ffm %>% ggplot(aes(x=`1`,y=`10`)) +
+  geom_point(aes(color=subject, shape=factor(rep))) +facet_grid(treatment~scale)
+```
+
+
+### Separate  
+-> 하나의 column에 많은 정보가 있는 경우 = nontidy data
+-> separte 함수를 이용하여 나눈다.
+   : into - 분리할 변수명 c("A","B")
+   : 옵션 sep - default값: non alpha numeric character을 기준
+              - 나누고자 하는 기준 지정("/")
+              - 숫자 x 입력시, 앞에서 x번째에서 끊는다.(ex. sep=2 : 2번째 글자까지 끊는다) 
+   : 옵션 convert=TRUE - 맞는 데이터 형태로 변수 생성한다.(ex.숫자일경우 integer형태) 
+   
+```{r}
+table3
+
+table3 %>%
+  separate(rate, into = c("cases", "population"))
+
+table3 %>%
+  separate(rate, into = c("cases", "population"), sep = "/")
+
+table3 %>%
+separate(rate, into = c("cases", "population"), convert = TRUE) 
+
+table3 %>%
+separate(year, into = c("century", "year"), sep = 2) 
+```
+
+
+### unit
+-> 분리된 정보를 합치고자 할 때 사용한다.
+  : defalut값이 _로 연결시, A_B 로 된다.
+  : 옵션 sep = "" - 연결시, 바로 연결된다.
+  
+```{r}
+table5 %>%
+  unite(new, century, year) 
+
+table5 %>%
+unite(new, century, year, sep = "") 
+```
+
+
+
+#### My turn  
+extra="drop"(default) : 변수보다 관측치가 많을 때 탈락시킨다.  
+extra="merge" : 변수보다 관측치가 많을 때 마지막을 합쳐서 나온다.  
+```{r}
+# g가 탈락
+tibble(x=c("a,b,c", "d,e,f,g", "h,i,j") ) %>%  
+  separate(x, c("one", "two", "three"))
+
+tibble(x=c("a,b,c", "d,e,f,g", "h,i,j") ) %>%  
+  separate(x, c("one", "two", "three"), extra="drop")
+
+tibble(x=c("a,b,c", "d,e,f,g", "h,i,j") ) %>%  
+  separate(x, c("one", "two", "three"), extra="merge") 
+```
+
+변수보다 관측치가 적을 때 NA처리한다.
+-> fill="right" : 오른쪽에 NA
+-> fill="left" : 왼쪽에 NA
+```{r}
+tibble(x=c("a,b,c","d,e","f,g,i")) %>% 
+  separate(x, c("one","two","three"))
+
+tibble(x=c("a,b,c","d,e","f,g,i")) %>% 
+  separate(x, c("one","two","three"), fill="right") 
+```
+
+
+
+### Missing valus  
+implicitly missing values : 눈에 보이지 않는 missing (ex.2016 1분기 데이터) 
+explicity missing values : 눈에 보이는 missing(NA 처리)
+```{r}
+stocks <- tibble(
+  year = c(2015, 2015, 2015, 2015, 2016, 2016, 2016), 
+  qtr = c( 1, 2, 3, 4, 2, 3, 4),
+  return = c(1.88, 0.59, 0.35, NA, 0.92, 0.17, 2.66) 
+)
+```
+
+* implicitly missing values를 explicity하게 만들기 위해 pivot_wider 사용
+```{r}
+stocks %>%
+  pivot_wider(names_from = year, values_from = return)
+```
+
+* 다시 tidy한 data로 생성
+```{r}
+stocks %>%
+  pivot_wider(names_from = year, values_from = return) %>% 
+  pivot_longer(
+    cols = c(`2015`, `2016`),
+    names_to = "year",
+    values_to = "return",
+    values_drop_na = TRUE #NA값 떨어뜨리기
+)
+
+#year, qtr의 unique한 값을 보고 무엇이 빠졌는지 확인하여 NA 처리
+stocks %>% nrow() #7개의 행
+stocks %>%
+  complete(year, qtr) %>% nrow() #8개의 행
+```
+
+
+Ex. treatment -> 동일 인물 반복되는 것을 NA 처리된 경우
+              -> fill(person(변수)) : NA를 위의 값으로 채워준다(동일인물 - 같은이름 작성)
+```{r}
+treatment <- tribble(
+  ~ person, ~ treatment, ~response,
+  "Derrick Whitmore", 1, 7,
+  NA, 2, 10, #Derrick 이 반복되는 것을 NA로 처리
+  NA, 3, 9,
+  "Katherine Burke", 1, 4
+)
+
+treatment %>% fill(person) 
+```
+
+
+
+#### My turn  
+```{r}
+stocks <- tibble(
+  year = c(2015, 2015, 2015, 2015, 2016, 2016, 2016),
+  qtr = c( 1, 2, 3, 4, 2, 3, 4),
+  return = c(1.88, 0.59, 0.35, NA, 0.92, 0.17, 2.66)
+)
+
+stocks %>%
+  pivot_wider(names_from = year, values_from = return,
+              values_fill = list(return = 0)) 
+stocks %>% 
+  complete(year, qtr, fill = list(return = 0)) 
+```
+
+fill = list(return = 0)
+-> pivot_wider : implicity한 값만 0,  explicity한 값은 NA처리 ( NA는 모든 연산에 포함하지 않는다.)
+-> complete : NA값도 모두 0 처리한다.
+
+
+### who data  
+-> untidy data로 iso2, iso3 같은 정보이고 new_ 하나의 변수로 와야 한다.
+```{r}
+who 
+who1 = who %>% pivot_longer(cols=new_sp_m014:newrel_f65,
+                            names_to="key",
+                            values_to="cases",
+                            values_drop_na=TRUE) #NA가 많은 이유?
+summary(who1)
+```
+
+gather first - key별로 개수가 다르다
+```{r}
+who1 %>%
+  count(key) 
+```
+
+minor fix - key변수 중 new_rel값이 newrel로 되어 있는 경우가 있다.
+          - stringr::str_replace(변수, "A", "B" ) : 변수 중 A를 B로 대체한다. 
+```{r}
+who2 = who1 %>%
+  mutate(key = stringr::str_replace(key, "newrel", "new_rel")) 
+who2
+unique(who2$key)
+```
+
+separate, drop the redundant variables
+```{r}
+who3 = who2 %>% 
+  separate(key, c("new","type","sexage"))
+who4 = who3 %>% 
+  select(-iso2, -iso3, -new)
+who5 = who4 %>% 
+  separate(sexage, c("sex", "age"), sep=1) 
+```
+
+
+
+#### my turn  
+1. In this case study I set values_drop_na = TRUE just to make it easier to check that we had the correct values. Is this reasonable? Think about how missing values are represented in this dataset. Are there implicit missing values? What’s the difference between an NA and zero?
+1-1) Check if there are any differences between zero cases and NA cases.
+```{r}
+who1 %>% 
+  filter(cases==0) %>% 
+  nrow()
+
+pivot_longer(who, c(new_sp_m014:newrel_f65, )
+             
+group_by(country,year) %>% 
+  mutate(prop_missing = )
+
+#여집합-> 전체집합에서 집합 ㄱ것
+anti_join(complete(who,country, year), who, by=c)
+```
+
+1-2) Calculate the proportion of missing values by year and country.
+```{r}
+
+```
+
+1-3) Check for implicit missing values
+```{r}
+
+```
+
+2. I claimed that iso2 and iso3 were redundant with country. Confirm this claim.
+```{r}
+who3 = who %>%
+  pivot_longer(
+   cols = new_sp_m014:newrel_f65,
+   names_to = "key", #give a generic name
+   values_to = "cases", # count of cases
+   values_drop_na = TRUE # drop the missing values
+   ) %>%
+  mutate(key = stringr::str_replace(key, "newrel", "new_rel"))%>% 
+  separate(key, c("new","type","sexage"))
+
+who3 %>% 
+  group_by(country) %>% 
+  summarise(iso2_n=length(unique(iso2)), iso3_n=length(unique(iso3))) 
+
+who3 %>% select(country, iso2, iso3) %>% 
+  distinct() %>% 
+   group_by(country) %>% 
+  filter(n()>1)
+```
+
+3. For each country, year, and sex compute the total number of cases of TB. Make an informative visualization of the data.
+```{r}
+who5 %>% 
+  group_by(country, year, sex) %>% 
+  filter(year>1995) %>% 
+  summarise(cases=sum(cases)) %>% 
+  unite(country_sex, country, sex, remove=FALSE) %>% 
+  ggplot(aes(x=year, y=cases, group=country_sex, colour=sex)) + geom_line()
+```
+
+
+

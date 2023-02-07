@@ -1,0 +1,153 @@
+---
+title: "Rmarkdown"
+author: <div align="right"> LEE EUN JU </div>
+output: html_document
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Rmarkdown - 보고서 작성
+install.packages("rmarkdown")  
+
+|code                          | mean                                                      |
+|:-----------------------------|:----------------------------------------------------------|
+|'##'                          |제목                                                       |
+|<>                            |링크                                                       |
+|**knit**                      |굵은 글씨                                                  |
+|```{r} r code ```             |R코드 작성                                                 |
+|```{r echo=FALSE}```          |R코드는 포함하지 않고 결과물만 포함한다.                   |
+|```{r eval=FALSE}```          |code chunck만을 추가시키고 결과를 도출하지 않는다.         |
+|```{r inclue=FALSE}```        |코드와 결과 모두 포함하지 않는다.                          |
+|'echo=FALSE'                  |=을 문자로 작성하고자 할때 코드로 착각할 수 있으므로 따옴표|  
+
+* 한글로 보고서
+ 1) html형식 :  knit-> open in browser-> 인쇄 (한글로 pdf 복사할 수 있다)  
+ 2) Shift+Ctrl+C(windows)을 이용하여 한글 사용
+ 3) pdf document는 한글X, 무조건 영어만 가능
+
+* library는 모두 맨 위에!
+코드 안 돌아가면 코드만 나오고 결과는 나오지 않는다.
+-> 유기적으로 무조건 돌아가도록 하기
+
+* 데이터 테이블 작성
+:-----  좌측정렬
+:-----: 중앙정렬
+------: 우측정렬
+
+<br/>  
+
+#### Code Chunks  
+```{r}
+norm <- rnorm(100, mean = 0, sd = 1)
+head(norm)
+```
+
+#### Including Plots  
+```{r pressure, echo=FALSE}
+plot(pressure)
+```  
+
+#### Including dataframe
+```{r}
+A <- c("a", "a", "b", "b")
+B <- c(5, 10, 15, 20)
+dataframe <- data.frame(A, B)
+# plot(dataframe)
+```
+
+#### Load the .csv file
+```{r, eval=FALSE}
+dataframe <- read.csv("~/Desktop/Code/dataframe.csv")
+```
+
+#### Load libraries  
+```{r}
+library(dplyr)
+```
+
+```{r, include = FALSE}
+dataframe <- data.frame(A, B)
+# plot(dataframe)
+```
+
+#### Inserting tables  
+```{r}
+dataframe
+```
+
+#### Kable() function from knitr package  
+```{r}
+library(knitr)
+kable(dataframe, digits = 2)
+```
+
+#### Manually creaing tables
+
+| Plant | Temp. | Growth |
+|:------|:-----:|-------:|
+| A     | 20    | 0.65   |
+| B     | 20    | 0.95   |
+| C     | 20    | 0.15   |
+
+#### Inserting plots  
+```{r}
+library(ggplot2)
+ggplot(data = mpg, mapping = aes(x = displ, y = hwy, color= drv)) + 
+     geom_smooth(mapping = aes(linetype = drv), method = 'loess') +
+     geom_point()
+```
+
+#### Helpful resources
+https://ourcodingclub.github.io/tutorials/rmarkdown/
+
+
+### Rmarkdown - CheatSheet
+```{r echo=TRUE}
+selectInput("data", "", c("co2","lh"))
+renderPlot({ #render함수; 반응형 출력
+  d = get(input$data)
+  plot(d)
+})
+```
+
+#### EunJu^Lee^
+#### 2021-03-03
+#### [GITHUB](https://github.com/Lee-Eun-Ju)
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+***
+> 부산대학교
+
+|4학년  |학과   |
+|:------|:------|
+|이은주 |통계학과|
+|이XX   |경영학과|
+
+은주네 가족은 `r 2+2`명이다. -> 설명란에서 r을 간단하게 사용하고자 할 때, `r `을 이용한다.  
+
+***
+```{r eval=FALSE}
+library(knitr)
+```
+
+
+#### Bar Plot
+```{r echo=FALSE}
+library(knitr)
+
+A= c('a','b', 'c')
+B= c(37, 52, 79)
+eun= data.frame(A, B)
+kable(eun, align='l')
+barplot(B~A, eun)
+```
+
+
+
+

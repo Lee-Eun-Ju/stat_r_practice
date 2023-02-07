@@ -1,0 +1,123 @@
+---
+title: "Time Series Analysis"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, error = FALSE, warning = FALSE)
+library(forecast)
+```
+
+## HW2 201811526 이은주
+
+```{r spot}
+spot = read.csv('spot.csv')
+str(spot)
+```
+<br/><br/>
+
+1. Draw time series graph of sun spot. Do you see any cycle or seasonal effect?
+```{r}
+spot.ts = ts(spot, start=c(1771), frequency=1)
+plot(spot.ts, main = "Sun Spot : Original data")
+```
+
+Sun spot의 graph에 따르면, 10년을 주기로 cycle effect가 있음을 볼 수 있다.
+
+\pagebreak
+
+<br/><br/>
+2. try 5-point moving average smoothing. Draw the plot of original graph in black, 5 point MA smoothing in red, mean value in blue.
+```{r}
+m5 = filter(spot.ts, filter=rep(1/5,5), method="convolution", sides=1)
+plot(spot.ts, main = "Sun Spot : 5-point moving average smoothing") +
+  lines(m5, col="red", lty=2, lwd=2) + 
+  abline(h=sum(spot)/100, col="blue")
+```
+
+Moving average smoothing을 통해 original data보다는 smoothing해진 것을 알 수 있다.
+
+\pagebreak
+
+<br/><br/>
+3. Check the residual plot, check the stationary and the test the independence assumption. Carefully interpret the residual analysis.
+```{r}
+res = m5[-1:-4,] - spot.ts[-1:-4,]
+tsdisplay(res)
+```
+
+Residual Plot : 완전히 random하지 않고 여전히 어떠한 pattern이 있는 것으로 보인다.  
+Stationary : ACF, PACF를 보았을 때, 유의수준 밖으로 벗어나는 값이 있음을 알 수 있다.  
+             즉, 정상성을 갖추고 있다고 할 수 없다.  
+<br/><br/>
+
+```{r}
+Box.test(res, type="Box-Pierce")
+```
+
+H0 : Time Series is independent  
+-> p-value가 5.044e-13으로 유의수준 0.05보다 작은 것을 알 수 있다.  
+-> 즉, 귀무가설을 기각할 수 있으므로 잔차가 자기상관이 있다고 할 수 있다.
+
+\pagebreak
+
+<br/>
+4. Fit the simple exponential smoothing with alpha=0.1 and with the optimized alpha. If you think we need a trend, or seasonal, or both try them. Please address all the moeling and show how you find the best exponential smoothing model for spot data.
+
+|         | alpha = 0.1 | optimized alpha|
+|:-------:|:-----------:|:--------------:|
+|  X      | ho model    | ha model       |
+| trend   | ho_trend model | ha_trend model |
+
+* 1년 주기의 data이므로 seasonal은 필요하지 않다.
+* 총 4가지의 모델을 residual plot, stationary, test the independence를 비교하여 best model을 뽑도록 하였다.  
+
+* find 함수 : residual plot, stationary, test the independence 출력 
+```{r}
+find = function(x){
+  f = forecast(x)
+  tsdisplay(f$residual)
+  Box.test(f$residual, type="Box-Pierce")
+}
+```
+<br/>
+1) ho model
+```{r}
+ho = HoltWinters(spot.ts, alpha=0.1, beta=F, gamma=F) ; find(ho)
+```
+<br/><br/>
+2) ho_trend model
+```{r}
+ho_trend = HoltWinters(spot.ts, alpha=0.1, beta=T, gamma=F) ; find(ho_trend)
+```
+\pagebreak
+<br/><br/>
+3) ha model
+```{r}
+ha = HoltWinters(spot.ts, beta=F, gamma=F) ; find(ha)
+```
+\pagebreak
+<br/><br/>
+4) ha_trend model
+```{r}
+ha_trend = HoltWinters(spot.ts, beta=T, gamma=F) ; find(ha_trend)
+```
+
+<br/>
+
+* 총 4가지 모델 중, optimized alpha를 적용시키고 trend를 고려하였을 때,  
+  independence test에서 p-value가 0.1376으로 0.05보다 커 잔차가 자기상관이 없다고 할 수 있으며
+  residual plot도 어느 정도 random해보인다. ACF와 PACF도 대체로 유의수준 내에 있다.
+  
+\pagebreak
+<br/><br/>
+5.From your best model, find the forecast of next 4 points.
+```{r}
+ha_trend = HoltWinters(spot.ts, beta=T, gamma=F)
+fa_trend = forecast(ha_trend, h=4)
+fa_trend
+plot(fa_trend)
+lines(fa_trend$fitted, col="red", lty=2, lwd=2)
+```
+
+다음 sun spot은 111, 148, 185, 222로 예측된다.

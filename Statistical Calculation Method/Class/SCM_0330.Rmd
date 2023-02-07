@@ -1,0 +1,283 @@
+---
+title: "SCM_0330"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Chapter5. Visualization of factors
+categorical vs factor
+factor : 내가 order을 줄 수 있다.
+-> text variable, numeric categorical variable을 factor화 할 수 있다
+-> bar graph를 주로 사용한다.
+
+```{r library}
+library(tidyverse)
+library(gridExtra)
+```
+
+```{r fbi}
+fbi<-read.csv('fbi.csv')
+head(fbi)
+fbi$State = as.factor(fbi$State)
+fbi$Abb = as.factor(fbi$Abb)
+fbi$Type = as.factor(fbi$Type)
+```
+
+### my turn
+```{r}
+#1 변수는 총 7개이며 각 변수들은 chr, int, logi(true/false)로 이루어져 있다.
+str(fbi) #factor은 level이 출력된다.
+
+#2
+summary(fbi$Year)
+
+#3
+fbi$Year = factor(fbi$Year)
+
+#4
+summary(fbi$Year) #count값으로 summary
+str(fbi) #factor로서 58개의 level이 존재
+
+#5
+
+```
+
+### factors in boxplots
+```{r }
+twoyear <- dplyr::filter(fbi, Year %in% c(1961, 2016)) #%in%: 1961년이거나 2016년
+head(twoyear)
+str(twoyear) #2 level
+
+ggplot(data=twoyear, aes(x=as.integer(Year),y=Count)) + geom_boxplot() -> p1 #x축이 58개의 level
+ggplot(data=twoyear, aes(x=factor(Year),y=Count)) + geom_boxplot() -> p2
+grid.arrange(p1,p2,nrow=1) #두개의 그래프 붙이는 것
+
+is.numerc(fbi$Year) #true, false
+as.numeric(fbi$Year) #numeric으로 만들겠다.
+```
+
+* factor을 numeric으로 만들려면 as.character() 후, as.numeric 
+ -> 바로 numeric으로 바꾸면 level로 바꾸는 것이다.
+* factor가 아닌 것을 factor화 하는 것은 바로 as.factor
+
+
+### Reordering factor levels
+```{r}
+levels(fbi$Type)
+
+#지정한대로 reorder
+levels(factor(fbi$Type),
+       levels=c("Larceny.theft", "Burglary", "Motor.vehicle.theft","Robbery" ,
+                "Aggravated.assault", "Legacy.rape", "Rape", "Murder.and.nonnegligent.Manslaughter"))
+
+#count별 reorder -> na.rm=TRUE 하지 않으면 모두 NA가 된다.
+fbi$newType = factor(fbi$Type, levels= levels(reorder(fbi$Type, fbi$Count, na.rm=TRUE))) 
+
+#geom_bar가 2개의 변수를 사용할때는 옵션이 필요 -> stat='identity'
+fbi %>% 
+  ggplot(aes(x=newType, y=Count, fill=newType)) +
+  geom_bar(stat='identity') +coord_flip()
+```
+
+### my turn
+```{r, fig.height=7, fig.width=10}
+fbi_rate = fbi %>% 
+  mutate(crime_rate = Count/Population)
+
+fbi_rate %>% 
+  ggplot(aes(x=Type, y=crime_rate)) +
+  geom_boxplot() + coord_flip()
+
+#reorder
+fbi_rate$Type = factor(fbi_rate$Type, levels=levels(reorder(fbi_rate$Type, fbi_rate$crime_rate, median,na.rm=TRUE)))
+fbi_rate %>% 
+  ggplot(aes(x=Type, y=crime_rate)) +
+  geom_boxplot() + coord_flip()
+
+#state
+fbi_rate %>% 
+  filter(Type == "Larceny.theft")%>% 
+  ggplot(aes(x=State, y=crime_rate)) +
+  geom_boxplot() + coord_flip()
+
+fbi_state = fbi_rate %>% 
+  filter(Type == "Larceny.theft") 
+fbi_state$State = factor(fbi_state$State, levels=levels(reorder(fbi_state$State, fbi_state$crime_rate,median,na.rm=TRUE)))
+
+fbi_state %>% 
+  filter(Type == "Larceny.theft")%>% 
+  ggplot(aes(x=State, y=crime_rate, fill=State)) +
+  geom_boxplot(show.legend=FALSE) + coord_flip() 
+
+### 새로운 데이터프레임 지정하지 않고 하기
+fbi %>% 
+  fitler(Type=="Larceny.theft") %>% 
+  mutate(rate=crime_rate = Count/Population) %>% 
+  ggplot(aes(x=State,))
+```
+
+### Changing Level's names
+```{r}
+levels(fbi$Type)
+levels(fbi$Type)[6] <- "Murder"
+levels(fbi$Type)
+```
+
+visualize facotr -> barchart (colour, fill, shape, facet 사용)
+ordering 해주는 것이 중요
+
+
+### Example
+```{r}
+fbi<-read.csv('fbi.csv')
+str(fbi)
+
+ggplot(fbi, aes(x = Type, fill=Year)) + geom_bar()
+ggplot(fbi, aes(x = Type, fill=factor(Year))) + geom_bar()
+```
+* fill은 무조건 factor가 와야 한다.
+
+### Example2
+```{r}
+library(titanic)
+head(titanic_train)
+?titanic_train #생존률 
+```
+
+barcharts of all variables
+```{r}
+ggplot(titanic_train, aes(x = Survived)) +geom_bar() #1이 생존
+ggplot(titanic_train, aes(x = Pclass))+geom_bar()
+ggplot(titanic_train, aes(x = Sex))+geom_bar()
+ggplot(titanic_train, aes(x = Age))+geom_bar()
+
+
+titanic_train$Survived<-factor(titanic_train$Survived)
+#position="fill" : 비율100%로 , 상대적 비교가 필요할 때 사용
+ggplot(titanic_train, aes(x = Survived, fill=Survived)) + geom_bar(position="fill")
+ggplot(titanic_train, aes(x = Pclass, fill=Survived)) + geom_bar(position="fill")
+ggplot(titanic_train, aes(x = Sex, fill=Survived)) + geom_bar(position="fill")
+```
+
+Two and more factor variables
+```{r}
+library(ggmosaic)
+titanic_train %>%
+  mutate(Age2=ifelse(Age>20, 'Adult', 'Child')) %>% #ifelse(조건, yes, no)
+  ggplot() +
+  geom_mosaic(aes(x = product(Sex), fill=Survived, weight=1)) +
+  facet_grid(Age2~Pclass)
+```
+
+#mosaic plot 스스로 공부해보기
+
+###my turn
+```{r}
+#1 타이타닉호에 남성이 많이 타고 있었다.
+titanic_train %>% 
+  ggplot() +
+  geom_bar(aes(Sex, fill=Sex))
+
+
+#2 여성이 훨씬 많이 생존한 것을 알 수 있다.
+titanic_train %>% 
+  ggplot() +
+  geom_bar(aes(x=Sex, fill=Survived))
+
+#3 상대적으로 생존한 비율을 알 수 있다.
+titanic_train %>% 
+  ggplot() +
+  geom_bar(aes(x=Sex,fill=Survived),position="fill")
+
+#4
+?geom_bar
+```
+
+#######################################
+Tibble : data frame의 진화된 버젼
+```{r}
+as_tibble(iris) #row와 column개수를 알 수 있다.
+head(data.frame(iris))
+```
+
+data를 바로 생성할 수 있는 장점
+dataframe은 x,y,z모두 따로 생성해주고 만들어야 함
+```{r}
+tibble(x=1:5, y=1, z=x^2+y)
+```
+
+dataframe은 string을 factor로 바꾸어주어 어려움을 만든다.
+tibble은 내가 인식하지 못한 순간에 바꾸어주는 그런 것 없다.
+tibble 은 space, 숫자, 특수문자 등이 column name이 될 수 있다.
+```{r}
+tb = tibble('2000'
+```
+
+tribble : 간단하게 데이터 입력하고자 할 때 사용
+```{r}
+tribble(
+  
+)
+```
+
+* printing과 subsetting의 차이가 있음을 알 수 있다.
+* tibble은 무조건 10개만 보여줌 ->dataframe은 잘못클릭하면 다 출력되어 어려움
+
+```{r}
+tible(
+  a= lubridate::now() + runif(1e3) * 86400 #now : 현재 시간
+)
+
+nycflights13::flights %>% 
+  print(n=15, width=Inf) # 10개 이상 보고 싶을때, 전체보고 싶으면 infinite
+
+is_table(nycflights13::flights)
+
+nycflights13::flights %>% view() #따로 창을 열어 데이터를 볼 수 있다
+
+```
+
+```{r}
+
+df[["x"]]  #여러 형태로 불러올 수 있다.
+
+df = 
+  
+df %>%  .$x #.을 이용해야함
+
+#다시 데이터프레임 형태로
+as.data.frame(tble)
+```
+
+##my turn
+```{r}
+head(mtcars)
+mtcars = as_tibble(mtcars)
+is_tibble(as_tibble(mtcars))
+class(nycflights13::flights)
+
+df = data.frame(abc=1, xyz="a")
+df$x #x가 없는데 x로 시작하는 변수 다 불러옴 -> 변수명이 달라도 불러와버림
+df[, "xyz"]
+df[, c("abc", "xyz")]
+
+tbl = as_tibble(df)
+tbl$x
+
+tb[["1"]]
+tb$'1'
+tb$1 로는 나오지 않는다.
+
+1에다가 물결코드 치면 '' 자동 인식
+tb[["3"]] = tb$2
+
+rename
+tb2 = rename(tb, one='1', two='2')
+
+enframe => 데이터 간략하게 만들고자할땨 but tribble로 만들어주는것추천
+enframe(c(a=1, b=2, c=3)) 
+```
+

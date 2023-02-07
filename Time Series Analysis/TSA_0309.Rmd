@@ -1,0 +1,135 @@
+---
+title: "Time Series Analysis 0309"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## dd1 data  
+-> 우연변동 시계열 : 추세가 없다
+
+```{r dd1}
+dd1= matrix(c(1342, 1442, 1252, 1343, 1425, 1362, 1456, 1272, 1243,
+              1359, 1412, 1253, 1201, 1478, 1322, 1406, 1254, 1289, 
+              1497, 1208))
+dd1.ts= ts(data=dd1, start=c(2006,1), frequency=4) #2006년부터 사분기
+dd1.ts
+plot(dd1.ts, mai="Random variation Time Series")
+```
+
+## dd2 data  
+-> 계절변동 시계열 : 비슷한 패턴의 변동이 보인다(계절성이 있다)
+
+```{r dd2}
+dd2=matrix(c(1142, 1242, 1452, 1543, 1125, 1262, 1456, 1572, 1143, 1259,
+             1462, 1553, 1121, 1258, 1472, 1546, 1154, 1249, 1477, 1548))
+dd2.ts=ts(data=dd2, start=c(2006,1), frequency=4)
+dd2.ts
+plot(dd2.ts, mai="Seasonal variation Time Series")
+```
+
+## dd3 data  
+-> 추세변동 시계열 : variation이 있으나 증가하는 추세가 있다.
+
+```{r dd3}
+dd3=matrix(c(1142, 1242, 1252, 1343, 1225, 1562, 1356, 1572, 1343, 1459,
+             1412, 1453, 1401, 1478, 1322, 1606, 1554, 1589, 1597, 1408))
+dd3.ts=ts(data=dd3, start=c(2006,1), frequency=4)
+dd3.ts
+plot(dd3.ts, mai="Trend variation Time Series")
+```
+
+## dd4 data  
+-> 계절적 추세변동 시계열 : 계절적 변동과 증가하는 추세가 있다.
+
+```{r dd4}
+dd4=matrix(c(1142, 1242, 1452, 1543, 1225, 1362, 1556, 1672, 1343, 1459, 
+             1662, 1753, 1421, 1558, 1772, 1846, 1554, 1649, 1877, 1948))
+dd4.ts=ts(data=dd4, start=c(2006,1), frequency=4)
+dd4.ts
+plot(dd4.ts, mai="Seasonal Trend variation Time Series")
+```
+
+## dd5 data  
+-> 순환변동 데이터  
+* 계절성 : 연도, 주기에 따라서 비슷한 변동 반복  
+* 순환변동: time sequence가 명확하지 않은 경우
+
+```{r dd5}
+dd5=matrix(c(1142, 1242, 1452, 1543, 1225, 1362, 1556, 1672, 1343, 1459, 
+             1662, 1753, 1221, 1358, 1572, 1646, 1154, 1249, 1477, 1548))
+dd5.ts=ts(data=dd5, start=c(2006,1), frequency=4)
+dd5.ts
+plot(dd5.ts, mai="Cyclinical variation Time Series")
+
+```
+
+
+## Stationary(정상성)  
+미래는 확률적으로 과거와 동일해야 한다.
+
+1. 정상성의 대표적인 예 : white noise 
+```{r WN}
+WN = runif(100, min=-0.5, max=0.5)
+WN.ts = ts(data=WN, start=c(1,1), frequency=1)
+plot(WN.ts, mai="White noise") + 
+  abline(h=0)
+```
+
+2. 정상성 확인
+
+   자기상관함수(ACF와 PACF)
+   : 유의수준 안에 acf가 들어오면 정상성을 갖는다고 할 수 있다.
+```{r}
+acf(WN.ts, main="ACF") 
+pacf(WN.ts, main="PACF")
+```
+
+    KPSS test
+   : 검정을 통해 정상성의 유무를 확인
+```{r}
+tseries::kpss.test(WN.ts, null="Level")
+```
+   : p-vale가 0.1이므로 정상성이 있다는 귀무가설을 기각하지 못한다.
+
+
+## 비정상성(Non-stationary) => Random walk
+$ y_t = y_{t-1} + a_t, a_t ~ Unif(-0.5,0.5) $
+* a_t가 white noise series여야 한다.
+* y_t는 과거자료 + error값으로 형성된다.
+
+계속해서 그래프 달라지는 것을 알 수 있다. 
+```{r}
+at = runif(100, min=-0.5, max=0.5)
+yt = runif(100, min=-0.5, max=0.5)
+for(i in 2:100){
+  yt[i]=yt[i-1]+at[i]
+}
+
+yt.ts = ts(data=yt)
+plot(yt.ts, mai="Random walk") +
+  abline(h=0)
+```
+
+```{r}
+acf(yt.ts, main="ACF") # 어제의 시계열자료와 오늘의 시계열자료의 correlation이 크다
+pacf(yt.ts, main="PACF")
+```
+
+```{r}
+#귀무가설 : 정상성을 갖는다.
+#귀무가설 기각 -> 비정상성을 갖는다
+tseries::kpss.test(yt.ts, null="Level") 
+
+
+#귀무가설 : 추세를 가지고 있는 정상성이 있다.
+#추세를 빼고 난 그래프에 대해서는 귀무가설 기각하지 못함. -> 정상성을 갖는다
+tseries::kpss.test(yt.ts, null="Trend") 
+```
+
+
+
+
+

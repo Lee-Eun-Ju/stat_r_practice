@@ -1,0 +1,31 @@
+---
+title: "Statistic Calculate Method"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(gridExtra)
+library(tidyr)
+library(reshape2)
+```
+
+<div align="right">
+#### HW3 201811526 이은주
+</div>
+
+For this your turn use the fbiwide data.
+
+1. Use gather or pivot_longer from the tidyr package to combine the variables for the different types of crimes into one variable. Call the key-value pair “Type” and “Incidences”. Compute a crime rate
+```{r}
+fbi = read.csv("fbi.csv")
+
+```
+
+
+2. Only consider crime rates for Iowa and Minnesota. Use spread or pivot_wider to create incidence columns for each of these states. Plot crimes in Iowa against crimes in Minnesota, colour by type of crime. Note: you need to exclude some variables.
+```{r}
+
+```
+

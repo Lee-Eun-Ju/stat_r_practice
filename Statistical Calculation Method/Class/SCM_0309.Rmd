@@ -1,0 +1,245 @@
+---
+title: "SCM_0309"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## pipes %>% : 생각하는 순서대로 코드를 짤 수 있다.
+```{r}
+library(tidyverse)
+data(diamonds)
+head(diamonds)
+str(diamonds)
+head(diamonds, 10)
+
+diamonds %>% head(10)
+diamonds %>% head() %>% summary()
+```
+
+## ggplot (mpg data)
+```{r data, echo=FALSE}
+data(mpg)
+mpg
+```
+
+```{r scatterplot, echo=TRUE, out.width="40%"}
+ggplot(data=mpg)+ geom_point(mapping=aes(x=displ, y=hwy))
+
+# %>% 사용
+mpg %>% 
+  ggplot()+
+  geom_point(mapping=aes(x=displ, y=hwy))
+
+#log화
+mpg %>% 
+  ggplot()+
+  geom_point(mapping=aes(x=log(displ), y=log(hwy)))
+```
+
+## ggplot_my turn
+```{r}
+#1 아무것도 지정된 것이 없으므로 안보임
+ggplot(data=mpg) 
+
+#2 행;234 열;11
+str(mpg) 
+glimpse(mpg)
+
+#3 drv는 drive train의 종류를 의미
+?mpg 
+
+#4 범주형 변수의 scatterplot은 의미가 없다.
+ggplot(data=mpg)+ geom_point(mapping=aes(x=hwy, y=cyl))
+ggplot(data=mpg)+ geom_point(mapping=aes(x=drv, y=class)) 
+
+#4 범주형변수-> count data로 이용
+mpg %>% 
+  count(class, drv) %>% #파이프라인 사용시 count data 저장 안해도 된다 
+  ggplot(aes(x=class, y=drv)) +
+  geom_tile(mapping= aes(fill=n)) #n이라는 색깔로 채우다
+
+```
+
+## aes => color, size, alpha, shpae ;모두 변수여야 한다!
+```{r}
+#aes(color) -> class별 색깔
+ggplot(data=mpg)+ 
+  geom_point(mapping=aes(x=displ, y=hwy, color=class))
+
+#aes(size) -> class별로 count클수록 크기가 크다
+ggplot(data=mpg)+ 
+  geom_point(mapping=aes(x=displ, y=hwy, size=class)) 
+
+#aes(alpha) -> count많을수록 진함
+ggplot(data=mpg)+ 
+  geom_point(mapping=aes(x=displ, y=hwy, alpha=class)) 
+
+#aes(shape) -> 모양 다르게 할 수 있다.
+ggplot(data=mpg)+ 
+  geom_point(mapping=aes(x=displ, y=hwy, shape=class)) 
+
+```
+
+## my turn2
+```{r}
+#1 -> 모든 점을 파란색으로 지정한 것이다.
+ggplot(data=mpg) +
+  geom_point(mapping=aes(x=displ, y=hwy), colour="blue")
+
+#aes안에는 변수만 와야하므로 blue라는 변수로 인식-> 무조건 빨간색
+ggplot(data=mpg) +
+  geom_point(mapping=aes(x=displ, y=hwy, colour="blue"))
+
+#2 -> 범주형; manufacturer,model, trans,drv, fl,class
+glimpse(mpg)
+
+#3 연속형변수를 colour, shape등으로 지정한 경우
+ggplot(data=mpg) +
+  geom_point(mapping=aes(x=displ, y=hwy, size=cty))
+
+#4 같은 변수를 colour,size등에 넣을 필요 없다=> 같은 정보이므로
+ggplot(data=mpg) +
+  geom_point(mapping=aes(x=hwy, y=displ, colour=hwy, size=class))
+
+#5 stroke=> 테두리의 굵기
+?geom_point
+ggplot(data=mpg) +
+  geom_point(mapping=aes(x=displ, y=hwy, stroke=3, shape=class))
+
+ggplot(mtcars, aes(wt,mpg))+
+  geom_point(shape=21, colour="red", fill="blue", size=10, stroke=3)
+
+#6 displ이 5보다 작은 것; 파란색, 5보다 큰것;빨간색
+ggplot(data=mpg) +
+  geom_point(mapping=aes(x=displ, y=hwy, colour=displ<5))
+
+```
+
+## Common problems
+```{r}
+#아래에 + 두면 실행되지 않는다.
+ggplot(data=mpg)
++ geom_point(mapping=aes(x=displ, y=hwy, shape=class))
+
+```
+
+
+
+## Facets
+```{r}
+ggplot(data=mpg) +
+  geom_point(mapping=aes(x=displ,y=hwy)) +
+  facet_wrap(~class,nrow=5)
+
+ggplot(data=mpg) +
+  geom_point(mapping=aes(x=displ,y=hwy)) +
+  facet_grid(drv~cyl)
+
+```
+
+## my turn3
+```{r}
+#1 무수히 많은 범주가 생긴다-> 더 큰 데이터였다면 그릴 수 없었을 것이다
+ggplot(data=mpg) +
+  geom_point(mapping=aes(x=displ,y=hwy)) +
+  facet_wrap(.~cty)
+
+#2 해당 범주 안에 데이터가 없는 경우이다.
+ggplot(data=mpg) +
+  geom_point(mapping=aes(x=displ,y=hwy)) +
+  facet_grid(drv~cyl)
+ggplot(data=mpg) +
+  geom_point(mapping=aes(x=drv,y=cyl)) 
+
+#3
+ggplot(data=mpg)+
+  geom_point(mapping=aes(x=displ, y=hwy)) +
+  facet_grid(drv~.) #가로로 drv 범주 나누어줌 => x축으로!
+ggplot(data=mpg)+
+  geom_point(mapping=aes(x=displ, y=hwy)) +
+  facet_grid(.~cyl) #세로로 cyl 범주 나누어줌 => y축으로!
+
+#4 범주별 분포를 정확히 알 수 있으나, 전체적인 분포를 알기는 어렵다
+ggplot(data=mpg)+
+  geom_point(mapping=aes(x=displ, y=hwy, colour=class))
+ggplot(data=mpg)+
+  geom_point(mapping=aes(x=displ, y=hwy)) +
+  facet_wrap(~class, nrow=2)
+
+#5 facet_grid는 nrow, ncol 옵션없다
+ggplot(data=mpg)+
+  geom_point(mapping=aes(x=displ, y=hwy)) +
+  facet_wrap(~class, ncol=4)
+
+#절대적인 비교가 필요없을 경우 y축 범위 최소 최대로 가능
+ggplot(data=mpg)+
+  geom_point(mapping=aes(x=displ, y=hwy))+
+  facet_wrap(~class,nrow=4,scales="free_y")
+  
+```
+
+
+## geom_function(line, point, smooth)
+```{r}
+ggplot(data=mpg)+
+  geom_smooth(mapping=aes(x=displ,y=hwy))
+
+#그룹별로 나누어 그래프
+ggplot(data=mpg)+
+  geom_smooth(mapping=aes(x=displ,y=hwy, group=drv)) 
+
+#그룹별로 linetype 설정 -> shapetype은 설정X
+ggplot(data=mpg)+
+  geom_smooth(mapping=aes(x=displ,y=hwy, linetype=drv)) 
+
+#geom은 계속해서 추가 가능
+ggplot(data=mpg)+ 
+  geom_smooth(mapping=aes(x=displ,y=hwy, color=drv),
+              show.legend=F) +
+  geom_point(aes(x=displ,y=hwy))
+
+ggplot(data=mpg, mapping=aes(x=displ,y=hwy))+
+  geom_smooth(aes(color=drv), show.legend=F) +
+  geom_point()
+
+ggplot(data=mpg, mapping=aes(x=displ,y=hwy, color=drv))+
+  geom_smooth(show.legend=F) +
+  geom_point() 
+
+#data의 일부만 선택하는 경우
+ggplot(data=mpg,mapping=aes(x=displ,y=hwy))+ 
+  geom_point(mapping=aes(color=class))+
+  geom_smooth(data=filter(mpg, class=="subcompact"), se=FALSE)
+```
+
+
+## my turn4
+```{r}
+#1 geom_line, boxplot, histogram, area
+ggplot(data=mpg, mapping=aes(x=displ,y=hwy))+ 
+  geom_boxplot() +
+  geom_histogram()
+  
+#2 se=FALSE ; standard error 부분 뺀다.
+ggplot(data=mpg, mapping=aes(x=displ,y=hwy,colour=drv))+
+  geom_point() + geom_smooth(se=FALSE)
+
+#3 show.legend=FALSE; coloring에 대한 legend를 뺀다
+ggplot(data=mpg, mapping=aes(x=displ,y=hwy,colour=drv),
+       show.legend=FALSE)+
+  geom_point() + geom_smooth(se=FALSE) 
+
+#5 standard error를 의미
+
+#6 아래의 그래프는 선이 그려지지 않는다-> 데이터 입력X
+ggplot(data=mpg, mapping=aes(x=displ, y=hwy)) +
+  geom_point() + geom_smooth()
+ggplot() + 
+  geom_point(data=mpg, mapping = aes(x=displ, y=hwy)) +
+  geom_smooth()
+
+#7(7-1 ~7-6)과제 - 코드, 그래프, 설명 모두 포함시키기
+```

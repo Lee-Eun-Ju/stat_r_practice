@@ -1,0 +1,108 @@
+﻿# Dataset of 550 000 observations about the black Friday in a retail store, 
+# it contains different kinds of variables either numerical or categorical.
+# It contains missing values. 
+
+
+#################### Variables Explanation
+# User_ID : User
+# Product_ID : Id Product
+# Gender : Boolean 
+# Age : Age customer
+# Occupation : Id Occupation of each customer
+# City_Category
+# Stay_In_Current_City_Years
+# Marital_Status : 결혼 여부 (0 : X , 1 : O)
+# Product_Category_1 (대분류)
+# Product_Category_2 (중분류)
+# Product_Category_3 (소분류)
+
+# Purchase : Purchase amount in dollars <=== "Dependent Variable" :)
+
+
+
+
+
+########## Install Packages
+install.packages('dplyr')
+install.packages('ggplot2')
+
+
+### The Purpose of 'BlackFriday' data Analysis : Prediction of Purchasing amount on BlackFriday, 29th, November
+data <- read.csv('C:\\Users\\kheed\\Desktop\\동아리 AIR\\2019_1\\Third Analysis\\BlackFriday\\BlackFriday.csv')
+head(data)
+str(data)
+colnames(data)
+dim(data)
+library(dplyr)
+glimpse(data)
+
+
+
+######### Processing newdata
+glimpse(data)
+max(data$User_ID)
+length(unique(data$User_ID))
+head(data$User_ID)
+firstindex<-rep(0,6040)
+num<-rep(0,6040)
+newdata<-matrix(NA,6040,8)
+colnames(newdata)<-c('Gender','Age','Occupation','City_Category','Stay_In_Current_City_Years','Martial_Status','Product_num','Purchase')
+head(newdata)
+for( i in 1000001 : 1006040 ) {
+  which<-which(data$User_ID==i)
+  i<-substr(i,4,7)
+  i<-as.numeric(i)
+  firstindex[i]<-which[1]
+  num[i]<-length(which)
+  for( n in 1:6 ) {
+  newdata[i,n]<-data[firstindex[i],n+2]
+  }
+  newdata[i,7]<-num[i]
+  newdata[i,8]<-sum(data$Purchase[which])
+  }
+head(newdata)
+
+
+length(which(is.na(newdata[,1])))
+na.index<-which(is.na(newdata[,1]))
+newdata <- newdata[-na.index,]
+sum(!complete.cases(newdata))
+dim(newdata)
+summary(newdata)
+newdata[,1] <- ifelse(newdata[,1]==1, 'F',ifelse(newdata[,1]==2,'M',NA))
+newdata[,2] <- ifelse(newdata[,2]==1,'0-17',ifelse(newdata[,2]==7,'55+',ifelse(newdata[,2]==3,'26-35',
+                                            ifelse(newdata[,2]==5,'46-50',ifelse(newdata[,2]==6,'51-55',
+                                            ifelse(newdata[,2]==4,'36-45',ifelse(newdata[,2]==2,'18-25',NA)))))))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

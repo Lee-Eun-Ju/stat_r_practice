@@ -1,0 +1,27 @@
+DateMatch Date #경기 날짜
+TeamPlaying Team #팀
+OpponentOpponent Team #상대 팀
+Goal ScoredNumber of goals scored by this team #팀의 골 득점수
+Ball Possession %Amount of time ball was in control by the team # 공 소유 시간
+AttemptsNumber of attempts to score goal #골 시도 횟수
+On-TargetNumber of shots on-target #패스 성공 수
+Off-TargetNumber of shots that went off-target #패스 실패 수
+BlockedNumber of opponent team's attempts blocked by the team #상대팀의 시도를 막은 수
+CornersNumber of corner shots used #코너킥 횟수
+OffsidesNumber of off-side events #오프사이드 횟수
+Free KicksNumber of free-kicks used #프리킥 횟수
+SavesNumber saves by the goal keeper #골기퍼가 막은 횟수
+Pass Accuracy %Percentage of passes that reached the same team player as aimed #패스 정확도
+PassesTotal number of passes by the team #우리 팀의 패스 총 횟수 
+Distance Covered (Kms)Total distance covered by the team members in this game #팀원들의 총 걸은 거리
+Fouls CommittedNumber of fouls committed by the team members #팀원의 파울
+Yellow CardNumber of Yellow warning received #옐로우 카드 횟수
+Yellow & RedNumber of Yellow & Red warning received #옐로우,레드 경고 횟수
+RedNumber of Red cards received #레드 카드 횟수
+Man of the MatchDid this team member win Man of the Match? #MOM 유무
+1st GoalWhen did the team score the 1st goal? #첫골의 시각
+RoundStage of the match #매치 종류(Final매치, Semi-Final매치...)
+PSOWas there a penalty shootout (PSO) in this match? #승부차기 유무
+Goals in PSONumber of goals scored in the Penalty shootout #승부차기 득점 수
+Own goalsNumber of own goals #자살골 횟수
+Own goal TimeWhen did the team score own goal? #자살골 시각

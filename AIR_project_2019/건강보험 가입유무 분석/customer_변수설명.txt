@@ -1,0 +1,11 @@
+customer 변수설명
+
+custid : 고객 번호
+sex : 고객 성별
+is.employed : 직업의 유무
+income : 월 소득
+marital.stat : 결혼상태
+health.ins : 건강보험 가입의 유무
+housing.type : 거주지 소유 상태
+recent.move : 최근 이사 여부
+num.vehicles : 소유 자동차 수

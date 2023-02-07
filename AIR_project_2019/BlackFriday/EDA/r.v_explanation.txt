@@ -1,0 +1,28 @@
+Dataset of 550 000 observations about the black Friday in a retail store, 
+	it contains different kinds of variables either numerical or categorical.
+	 It contains missing values. 
+
+
+User_ID : User
+
+Product_ID : Id Product
+
+Gender : Boolean 
+
+Age : Age customer
+
+Occupation : Id Occupation of each customer
+
+City_Category
+
+Stay_In_Current_City_Years
+
+Marital_Status : ∞·»• ø©∫Œ (0 : X , 1 : O)
+
+Product_Category_1
+
+Product_Category_2
+
+Product_Category_3
+
+Purchase : Purchase amount in dollars

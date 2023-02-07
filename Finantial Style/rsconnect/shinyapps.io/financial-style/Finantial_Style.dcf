@@ -1,0 +1,13 @@
+name: Finantial_Style
+title: Finantial_Style
+username:
+account: financial-style
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 4206954
+bundleId: 4658147
+url: https://financial-style.shinyapps.io/Finantial_Style/
+when: 1622414791.97225
+lastSyncTime: 1622414791.97325
+asMultiple: FALSE
+asStatic: FALSE

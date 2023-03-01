@@ -1,0 +1,217 @@
+---
+title: "Time Series Analysis"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(forecast)
+library(gridExtra)
+library(DMwR)
+```
+
+<div align = "right">
+#### Homework5 201811526 이은주
+</div>
+
+
+### 2. gasrx 
+
+gasrx data는 컨트롤러를 끄고 가스 용해로의 가스 입력 속도를 9초마다 판독한 데이터입니다. 
+예측을 위한 ARIMA 모델 선택을 위해 gasrx 데이터의 여러 특징을 알아보고 가장 좋은 모델을 최종 선택하겠습니다.
+
+<br/>
+<br/>
+
+#### [STEP 1] 시계열 데이터 처리 
+
+```{r}
+gasrx = read.table("gasrx.txt")
+gasrx_ts = ts(gasrx, start=c(0,0), frequency=60/9)
+head(gasrx_ts)
+```
+
+컨트롤러를 끄기 시작한 0초(시작)부터 9초간격으로 판독한 데이터이므로 1분동안 60/9번 판독함을 고려하여 시계열 데이터로 변환하였습니다.  
+
+\pagebreak 
+
+<br/>
+
+#### [STEP 2] 시계열 그래프
+
+gasrx 데이터의 시계열 그래프를 통해 시간 흐름에 따른 특징을 알아봅니다.
+
+```{r fig.height=3, fig.width=6}
+autoplot(gasrx_ts) + ylab("the rate of gas") +
+  ggtitle("Time Series Plot of gasrx data")
+```
+
+시간의 흐름에 따라 각 관측값을 보면 가스 입력 속도가 빨라졌다가 느려지는 즉, 진동하는 것처럼 보입니다.  
+또한 전반적으로는 컨트롤러를 끄고 나서 시간이 지날수록 가스 입력 속도가 느려지는 듯한 추세를 보입니다.   
+
+\pagebreak 
+
+<br/>
+
+#### [STEP 3] ACF, PACF
+
+ACF(자기상관함수) : t시간의 차이가 있는 두 관측값의 상관성  
+PACF(부분자기상관함수) : 상관성을 비교하기 위한 두 관측값 외 다른 관측값을 제외 후, 두 관측값의 상관성  
+
+AR(p) : ACF가 지수적으로 또는 sin함수 형태로 감소하며, PACF가 p+1차 이후 절단되어 보입니다.  
+MA(q) : ACF가 q+1차 이후 절단되며, PACF가 지수적으로 또는 sin함수 형태로 감소합니다.  
+ARMA(p,q) : ACF는 q-p+1차부터, PACF는 p-q+1차부터 지수적으로 또는 sin함수 형태로 감소합니다. 
+
+```{r fig.height=3, fig.width=6}
+p1 = ggAcf(gasrx_ts) + ylab("the rate of gas") + ggtitle("ACF of gasrx data")
+p2 = ggPacf(gasrx_ts) + ylab("the rate of gas") + ggtitle("PACF of gasrx data")
+grid.arrange(p1, p2, ncol=2)
+```
+
+ACF가 지수적으로 느리게 감소하고 PACF는 시차5 이후부터 절단된 것으로 보이는 것을 보아 AR(4) 모델을 임의로 선택합니다.  
+하지만 시차4 시점에서의 PACF값이 유의수준에 매우 가까우므로 AR(3) 모델 또한 고려하도록 합니다.  
+
+\pagebreak 
+
+<br/>
+
+#### [STEP 4] Best model 선택
+
+train data : 모델 선택을 위한 학습용 데이터  
+test data : 최종 선택한 모델의 최종 성능 평가를 위한 데이터 
+
+gasrx 데이터를 0초부터 36분(9초간격으로 240번째)까지 train data, 37분(241번째)부터 44.4분(296번째)까지 test data로 나누어 위에서 임의로 선택한 AR(3), AR(4) model과 자동선택된 ARMA model을 비교해 보고 가장 좋은 모델을 선택합니다.  
+
+```{r}
+train_gasrx = gasrx_ts[1:240]
+test_gasrx = gasrx_ts[241:296]
+```
+
+<br/>
+<br/>
+
+##### (1) 모델 적합  
+
+* AR(3) model
+```{r}
+arimaModel_3 = arima(train_gasrx, order=c(3,0,0));print(arimaModel_3)
+```
+AR(3) model : $Y_t$ = - 0.0776 + 1.9508$Y_{t-1}$ - 1.3055$Y_{t-2}$ + 0.2988$Y_{t-3}$ + $a_t$, $a_t$:WN  
+<br/>
+* AR(4) model
+```{r}
+arimaModel_4 = arima(train_gasrx, order=c(4,0,0));print(arimaModel_4)
+```
+AR(4) model : $Y_t$ = -0.0932 + 1.9048$Y_{t-1}$ - 1.1044$Y_{t-2}$ - 0.0009$Y_{t-3}$ + 0.1536$Y_{t-4}$ + $a_t$, $a_t$:WN
+
+<br/>
+
+\pagebreak
+
+<br/>
+
+* Autoarima model
+```{r}
+AutoarimaModel = auto.arima(train_gasrx); print(AutoarimaModel)
+```
+ARIMA(2,1,1) model = $\Delta Y_t$ = 1.5141$\Delta Y_{t-1}$ - 0.7490$\Delta Y_{t-2}$ - 0.5898$a_{t-1}$ + $a_t$, $a_t$:WN  
+<br/>
+
+세개의 모델의 AIC를 보면, AR(3): -87.68, AR(4): -91.4, ARMA(2,1,1): -90.11로 AR(4) 모델의 AIC값이 가장 작아 가장 모델이 적합한 것으로 보입니다. 하지만 이때 모델이 복잡할수록 좋은 모델이라고도 할 수 없으므로 각 모델의 다른 특징 또한 확인 후 최종 모델을 판단하도록 합니다.  
+
+<br/>
+
+\pagebreak
+
+<br/>
+
+##### (2) 정상성 : 시간이 흐름에도 확률적 성질이 변하지 않는 성질  
+
+모델의 특성방정식 근 절대값이 1보다 클 때, 정상성을 만족합니다.  
+즉 역근의 절대값이 1보다 작아야 하므로 원 안에 역근이 있으면 정상성을 만족한다고 할 수 있습니다.  
+
+```{r}
+p1=autoplot(arimaModel_3) + ggtitle("Inverse AR roots by AR(3) model") +
+  theme(plot.title = element_text(size=10))
+p2=autoplot(arimaModel_4) + ggtitle("Inverse AR roots by AR(4) model") +
+  theme(plot.title = element_text(size=10)) 
+p3=autoplot(AutoarimaModel) + ggtitle("Inverse AR, MA roots by ARIMA(2,1,1) model") +
+  theme(plot.title = element_text(size=10))
+grid.arrange(p1,p2,p3, ncol=2)
+```
+
+세개의 모델 모두 원 안에 역근이 있는 것으로 보아 정상성을 만족하는 것으로 보입니다.
+
+<br/>
+
+\pagebreak
+
+<br/>
+
+##### (3) 잔차의 독립성 및 정규성
+
+잔차의 분포를 통해 정규성을 확인하고, ACF값이 유의수준 내에 있다면 잔차의 자기상관성이 없다고 할 수 있습니다.  
+잔차의 독립성에 대해 정확히 알아보기 위해 Ljung-Box test 검정(H0:잔차가 독립) 또한 진행합니다.  
+
+```{r fig.height=3, fig.width=6}
+checkresiduals(arimaModel_3)
+```
+AR(3) 모델의 잔차 분포를 보았을 때 정규성을 따르지만 유의수준을 넘는 값이 존재하므로 검정 결과에 따라 잔차의 독립성을 판단하도록 하였습니다. AR(3) 모델은 p값이 0.07253으로 잔차가 독립이라는 귀무가설을 기각하지 않습니다. 즉, 잔차가 독립입니다.
+
+```{r fig.height=3, fig.width=6}
+checkresiduals(arimaModel_4)
+```
+AR(4) 모델의 잔차 분포를 보았을 때 정규성을 따르지만 유의수준을 넘는 값이 존재하므로 검정 결과에 따라 잔차의 독립성을 판단하도록 하였습니다. AR(4) 모델은 p값이 0.04633으로 잔차가 독립이라는 귀무가설을 기각하합니다. 즉, 잔차가 독립이라 할 수 없어 잔차의 조건을 만족하지 않습니다. 이에 따라 AR(4) 모델은 제외하도록 하겠습니다.  
+
+```{r fig.height=3, fig.width=6}
+checkresiduals(AutoarimaModel)
+```
+ARIMA(2,1,1) 모델의 잔차 분포를 보았을 때 정규성을 따르지만 ACF값이 유의수준을 넘는 값이 존재하므로 검정 결과에 따라 잔차의 독립성을 판단하도록 하였습니다. ARIMA(2,1,1) 모델은 p값이 0.09003으로 잔차가 독립이라는 귀무가설을 기각하지 않습니다. 즉, 잔차가 독립입니다.
+
+<br/>
+
+\pagebreak
+
+<br/>
+
+##### (4) 예측 및 정확성  
+
+```{r fig.height=3, fig.width=6}
+forecast1 = forecast::forecast(arimaModel_3, h=56)
+forecast2 = forecast::forecast(AutoarimaModel, h=56)
+
+p1 = autoplot(forecast1) + ggtitle("Forecasting by ARIMA(3,0,0)")
+p2 = autoplot(forecast2) + ggtitle("Forecasting by ARIMA(2,1,1)")
+grid.arrange(p1,p2, ncol=2)
+```
+
+37분부터 44.4분까지 예측을 한 결과 AR(3) 모델은 0에 가깝게 예측했으며 AR(2,1,1) 모델은 -2.5에 가깝게 예측하였습니다. 어떤 모델이 잘 예측한 것인지 확인하기 위해 정확성 지표를 확인해봅니다.  
+
+```{r}
+accuracy(arimaModel_3)
+accuracy(AutoarimaModel)
+```
+
+train data에 대한 RMSE 기준으로 정확성을 판단하여 두 모델을 비교하면 AR(3) 모델이 더욱 작은 것으로 보아 정확해보입니다. 이에 따라 AR(3) model을 최종 선택합니다.
+(RMSE : 여러 정확성 나타내는 지표 중 하나로 작을수록 정확성이 높다고 판단합니다.)
+
+<br/>
+
+\pagebreak
+
+<br/>
+
+##### (5) test data 예측값, 실제값 비교
+
+최종 선택한 AR(3) model에 대해 test data의 실제값과 예측값의 오차를 통해 모델의 성능을 확인합니다.  
+
+```{r}
+df.forecast1 = data.frame(forecast1)
+regr.eval(test_gasrx, df.forecast1$Point.Forecast)
+```
+
+RMSE가 0.586으로 매우 0에 가까운 것으로 보아 AR(3) 모델의 예측 성능이 좋은 것으로 보입니다.
+
+

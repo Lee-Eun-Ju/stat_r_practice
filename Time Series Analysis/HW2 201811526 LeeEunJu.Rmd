@@ -1,14 +1,19 @@
+
 ---
 title: "Time Series Analysis"
 output: html_document
 ---
+
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, error = FALSE, warning = FALSE)
 library(forecast)
 ```
 
-## HW2 201811526 이은주
+<div align = "right">
+#### Homework2 201811526 이은주
+</div>
+
 
 ```{r spot}
 spot = read.csv('spot.csv')
@@ -55,7 +60,7 @@ Stationary : ACF, PACF를 보았을 때, 유의수준 밖으로 벗어나는 값
 Box.test(res, type="Box-Pierce")
 ```
 
-H0 : Time Series is independent  
+H0 : Residual is independent  
 -> p-value가 5.044e-13으로 유의수준 0.05보다 작은 것을 알 수 있다.  
 -> 즉, 귀무가설을 기각할 수 있으므로 잔차가 자기상관이 있다고 할 수 있다.
 
@@ -106,8 +111,9 @@ ha_trend = HoltWinters(spot.ts, beta=T, gamma=F) ; find(ha_trend)
 <br/>
 
 * 총 4가지 모델 중, optimized alpha를 적용시키고 trend를 고려하였을 때,  
-  independence test에서 p-value가 0.1376으로 0.05보다 커 잔차가 자기상관이 없다고 할 수 있으며
+  independence test에서 p-value가 0.1376으로 0.05보다 커 잔차가 자기상관이 없다고 할 수 있으며 
   residual plot도 어느 정도 random해보인다. ACF와 PACF도 대체로 유의수준 내에 있다.
+* 즉, ha_trend model이 best exponential smoothing model이라고 할 수 있다.
   
 \pagebreak
 <br/><br/>
@@ -121,3 +127,7 @@ lines(fa_trend$fitted, col="red", lty=2, lwd=2)
 ```
 
 다음 sun spot은 111, 148, 185, 222로 예측된다.
+
+<br/><br/>
+
+

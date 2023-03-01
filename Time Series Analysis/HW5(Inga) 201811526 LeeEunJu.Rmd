@@ -1,0 +1,87 @@
+---
+title: "Time Series Analysis"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
+library(tidyverse)
+library(ggplot2)
+library(forecast)
+library(gridExtra)
+library(DMwR)
+```
+
+<div align = "right">
+#### Homework5 201811526 이은주
+</div>
+
+
+### 4. INGA_AmsterdamDiff  
+
+INGA.AmsterdamDiff 데이터는 2010년 1월1일부터 257일간, 주가의 일별 변화에 대한 데이터입니다.  
+예측을 위한 ARIMA 모델 선택을 위해 INGA.AmsterdamDiff 데이터의 여러 특징을 알아보고 가장 좋은 모델을 최종 선택하겠습니다.    
+
+<br/>
+<br/>
+
+#### [STEP 1] 시계열 데이터 처리 
+
+
+```{r}
+inga = read.table("INGA_AmsterdamDiff.txt")
+inga_ts = ts(inga, start=1, frequency=1)
+head(inga_ts)
+```
+2010년 1월 1일부터 하루 주기로 측정한 주가의 변화임을 고려하여 시계열 데이터로 변환합니다. 
+
+\pagebreak 
+
+<br/>
+
+#### [STEP 2] 시계열 그래프
+
+SavingRate 데이터의 시계열 그래프를 통해 시간 흐름에 따른 특징을 알아봅니다.  
+(보기 쉽도록 X축을 30일 간격으로 달별 눈금으로 조정하였습니다.)
+
+```{r fig.height=3, fig.width=6}
+date=seq(0,nrow(inga_ts),by=30)
+autoplot(inga_ts) + ylab("stock_price") +
+  ggtitle("Time Series Plot of INGA.AmsterdamDiff data") +
+  scale_x_continuous(breaks=date, labels=paste0("2010-",date/30+1 ))
+```
+
+2010년 4월로 넘어가며 급격히 주식이 한번 하락하였으나  
+대부분 변화율이 0%에서 왔다 갔다하며 어떠한 추세,계절성과 같은 특징이 전혀 보이지 않습니다.
+
+\pagebreak 
+
+<br/>
+
+#### [STEP 3] ACF, PACF
+
+```{r fig.height=3, fig.width=6}
+p1 = ggAcf(inga_ts) + ylab("stock_price") + ggtitle("ACF of INGA.AmsterdamDiff data")
+p2 = ggPacf(inga_ts) + ylab("stock_price") + ggtitle("PACF of INGA.AmsterdamDiff data")
+grid.arrange(p1, p2, ncol=2)
+```
+
+ACF, PACF 모두 유의수준에서 거의 벗어나지 않습니다.  
+이는 자기상관성이 없는 잔차와 같은 White noise, $Y_t$ = $a_t$, $a_t$:WN 에 해당하는 것으로 보입니다.  
+
+AutoarimaModel은 어떤 모델을 추정하는 지에 대해 확인해봅니다.
+```{r}
+train_inga = inga_ts[1:210]
+test_inga = inga_ts[201:257]
+AutoarimaModel = auto.arima(train_inga); print(AutoarimaModel)
+```
+마찬가지로 ARIMA(0,0,0) 즉 white noise로 추정하였습니다.
+
+<br/>
+<br/>
+
+#### [STEP4] Best model
+
+white noise의 경우 정상성 시계열의 대표적인 예로 각 시점의 관측값이 잔차와 같은 역할입니다.  
+즉, t시점에서의 관측값이 t-1시점에서의 관측값에 전혀 영향을 받지 않습니다.
+이에 따라 INGA.AmsterdamDiff data에 대한 모델링은 의미가 없습니다.

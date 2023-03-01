@@ -1,0 +1,447 @@
+---
+title: "RandomForest VS GradientBoosting"
+author: "Eunju Lee"
+date: September 15, 2021
+institute: Department of Statistics \newline Pusan National University
+fonttheme: "professionalfonts"
+section-titles: false
+safe-columns: true
+output:
+  beamer_presentation:
+    theme: "Copenhagen"
+    color: "dolphin"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(gridExtra)
+library(caret)
+library(ROSE)
+library(randomForest)
+library(gbm)
+library(xgboost)
+library(ROCR)
+library(measures)
+```
+
+# Classification
+
+## 1. Travel Insurance
+
+```{r include=FALSE}
+data = read.csv("TravelInsurancePrediction.csv")
+data = data[,-1]
+head(data)
+```
+
+**Data Description**
+
+- Age
+- Employment Type (1:Government 0:Private/Self Employed)
+- GraduateOrNot (1:Yes 0:No)  
+- Annual Income
+- FamilyMembers
+- ChronicDisease (1:Yes 0:No) 
+- FrequentFlyer (1:Yes 0:No) 
+- EverTravelledAbroad (1:Yes 0:No) 
+- TravelInsurance (1:Yes 0:No) 
+
+## 2. Preprocessing & Modeling Preparation
+
+```{r include=FALSE}
+data$Employment.Type %>% unique()
+data = data %>% mutate(
+  Employment.Type = ifelse(Employment.Type=="Government Sector", 1, 0),
+  GraduateOrNot = ifelse(GraduateOrNot=="Yes", 1, 0),
+  FrequentFlyer = ifelse(FrequentFlyer=="Yes", 1, 0),
+  EverTravelledAbroad = ifelse(EverTravelledAbroad=="Yes", 1, 0))
+
+data$Employment.Type = as.factor(data$Employment.Type)
+data$GraduateOrNot = as.factor(data$GraduateOrNot)
+data$ChronicDiseases = as.factor(data$ChronicDiseases)
+data$FrequentFlyer = as.factor(data$FrequentFlyer)
+data$EverTravelledAbroad = as.factor(data$EverTravelledAbroad)
+data$TravelInsurance = as.factor(data$TravelInsurance)
+```
+
+- **NA** : O rows
+```{r include=FALSE}
+data %>% filter(is.na(data))
+```
+
+- **Y class rate** : Up sampling
+```{r fig.height=1.5, fig.width=3, echo=FALSE}
+p1 = data %>% 
+  ggplot(aes(x=TravelInsurance)) +
+  geom_bar(aes(fill=TravelInsurance)) +
+  theme(legend.position = "none")
+
+set.seed(20210911)
+data_osample = ovun.sample(TravelInsurance~., data=data, method="over")$data 
+p2 = data_osample %>% 
+  ggplot(aes(x=TravelInsurance)) +
+  geom_bar(aes(fill=TravelInsurance)) +
+  theme(legend.position = "none")
+
+grid.arrange(p1, p2, ncol=2)
+```
+
+ - **train vs test** : train set 70%, test set 30%
+```{r include=FALSE}
+set.seed(20210911)
+n = dim(data_osample)[1]
+i = createDataPartition(data_osample$TravelInsurance, p=0.7, list=FALSE)
+train = data_osample[i,]
+test = data_osample[-i,]
+```
+
+- **Hyper parameter** : Grid Search ( Repeated Cross Validation )
+
+## 3. RandomForest
+
+```{r include=FALSE}
+set.seed(2021091)
+rf = randomForest( TravelInsurance ~ ., data=train, mtry=5)
+```
+
+- modeling 
+
+::: columns
+::::column
+
+```{r include=FALSE}
+rf$confusion
+confusionMatrix(rf$predicted, train$TravelInsurance)
+```
+
+|       | 0($\hat{Y}$)     | 1($\hat{Y}$)    | class error |
+|:-----:| :---: |:----:| :----------:| 
+|0(Y)      | 780   | 114  | 0.13        |
+|1(Y)      | 140   | 770  | 0.15        |
+
+::::
+
+::::column
+
+```{r fig.height=7, fig.width=8, echo=FALSE}
+varImpPlot(rf, main="Variable Importance", cex=1.5)
+```
+
+::::
+:::
+
+```{r include=FALSE}
+y_hat_rf <- predict(rf, newdata=test, type='prob')[,'1']
+y_obs <- test$TravelInsurance
+
+pred_rf <- prediction(y_hat_rf, y_obs)
+perf_rf <- performance(pred_rf, measure='tpr', x.measure='fpr')
+```
+
+
+## 4. GBM
+
+
+```{r include=FALSE}
+set.seed(20210911)
+gbm = gbm( (unclass(TravelInsurance)-1) ~ ., data=train, distribution="bernoulli",
+           n.trees = 150, interaction.depth = 3, shrinkage=0.1, n.minobsinnode=10)
+```
+
+- modeling
+
+::: columns
+::::column
+
+```{r include=FALSE}
+confusionMatrix(as.factor(as.numeric(gbm$fit>=0.5)), as.factor(train$TravelInsurance))$table
+```
+
+|       | 0($\hat{Y}$)     | 1($\hat{Y}$)    | class error |
+|:-----:| :---: |:----:| :----------:| 
+|0(Y)      | 873   | 21  | 0.02        |
+|1(Y)      | 340   | 570  | 0.37        |
+
+::::
+
+::::column
+
+```{r fig.height=7, fig.width=8, echo=FALSE}
+par(mar = c(5, 13, 2, 2))
+gbm_plot = summary.gbm(gbm, las=2, main="Variable Importance", cex.names=1.5)
+```
+
+::::
+:::
+
+
+```{r include=FALSE}
+y_hat_gbm <- predict(gbm, newdata=test, type='response')
+y_obs <- test$TravelInsurance
+
+pred_gbm <- prediction(y_hat_gbm, y_obs)
+perf_gbm <- performance(pred_gbm, measure='tpr', x.measure='fpr')
+```
+
+
+## 5. XGBoost
+
+```{r include=FALSE}
+train_x = data.matrix(train[,-9])
+train_y = train[,9]
+dtrain = xgb.DMatrix(train_x, label=(unclass(train_y)-1))
+
+test_x = data.matrix(test[,-9])
+test_y = test[,9]
+dtest = xgb.DMatrix(test_x, label=test_y)
+```
+
+```{r include=FALSE}
+set.seed(20210911)
+xgb = xgboost( data=dtrain, objective="binary:logistic", nrounds = 150, max_depth = 3, eta = 0.4, 
+               gamma = 0, colsample_bytree = 0.8, min_child_weight = 1, subsample = 1 )
+```
+
+- modeling
+
+::: columns
+::::column
+
+```{r include=FALSE}
+y_hat_train_xgb <- predict(xgb, newdata=dtrain, type='response')
+confusionMatrix(as.factor(as.numeric(y_hat_train_xgb>0.5)), as.factor(train$TravelInsurance))$table
+```
+
+|       | 0($\hat{Y}$)     | 1($\hat{Y}$)    | class error |
+|:-----:| :---: |:----:| :----------:| 
+|0(Y)      | 831   | 63  | 0.07        |
+|1(Y)      | 193   | 717  | 0.21        |
+
+::::
+
+::::column
+```{r fig.height=7, fig.width=8, echo=FALSE}
+xgb_importance = xgb.importance(colnames(train_x), model=xgb)
+par(mar = c(5, 10, 2, 2))
+xgb.plot.importance(xgb_importance, main="Variable Importance", cex=1.5)
+```
+
+::::
+:::
+
+```{r include=FALSE}
+y_hat_xgb <- predict(xgb, newdata=dtest, type='response')
+y_obs <- test$TravelInsurance
+
+pred_xgb <- prediction(y_hat_xgb, y_obs)
+perf_xgb <- performance(pred_xgb, measure='tpr', x.measure='fpr')
+```
+
+## 6. Comparing models
+
+::: columns
+
+:::: column
+```{r fig.height=5, fig.width=5, echo=FALSE}
+plot(perf_rf, col='black', main='ROC Curve') 
+par(new=TRUE)
+plot(perf_gbm, col='blue')
+par(new=TRUE)
+plot(perf_xgb, col='red') 
+abline(0,1)
+legend('bottomright', legend=c('RF','GBM','XGBoost'), col=c('black','blue','red'), lty=1, lwd=2)
+```
+::::
+
+:::: column
+```{r include=FALSE}
+a = performance(pred_rf, "auc")@y.values[[1]]
+b = performance(pred_gbm, "auc")@y.values[[1]]
+c = performance(pred_xgb, "auc")@y.values[[1]]
+
+tibble(model=c("RF", "GBM", "XGBoost"), auc=c(a,b,c))
+```
+
+
+| Model | AUC   |
+|:-----:| :---: | 
+|RF     | 0.89  | 
+|GBM    | 0.84  |          
+|XGBoost| 0.86  | 
+
+::::
+:::
+
+
+
+# Regression
+
+## 1. Heart Risk
+
+```{r include=FALSE}
+data = read.csv("heartRisk.csv")
+head(data)
+```
+
+**Data Description**
+
+- isMale (1:Male 0:Female)
+- isBlack (1:Black 0:Not)
+- isSmoker (1:Smoker 0:Non-smoker)
+- isDiabetic (1:Diabetic 0:Normal)
+- isHypertensive (1:Yes 0:No)
+- Age 
+- Systolic (Maximum Blood Pressure)
+- Cholesterol
+- HDL
+- Risk(%)
+
+
+## 2. Preprocessing & Modeling Prearation
+
+```{r include=FALSE}
+data$isMale = as.factor(data$isMale)
+data$isBlack = as.factor(data$isBlack)
+data$isSmoker = as.factor(data$isSmoker)
+data$isDiabetic = as.factor(data$isDiabetic)
+data$isHypertensive = as.factor(data$isHypertensive)
+```
+
+- **NA** : O rows
+```{r include=FALSE}
+data %>% filter(is.na(data))
+```
+
+- **train vs test** : train set 70%, test set 30%
+```{r include=FALSE}
+set.seed(20210911)
+n = dim(data)[1]
+i = sample(1:n, n*0.7, replace=F)
+train = data[i,]
+test = data[-i,]
+```
+
+- **Hyper parameter** : Grid Search ( Repeated Cross Vaslidation )
+
+
+## 3. RandomForest
+
+- modeling - RMSE : 6.31
+
+```{r fig.height=3.8, fig.width=6, echo=FALSE}
+set.seed(20210911)
+rf = randomForest( Risk ~ ., data=train, mtry=5)
+
+varImpPlot(rf , main="Variable Importance")
+```
+
+```{r include=FALSE}
+sqrt(rf$mse[500])
+```
+
+```{r include=FALSE}
+y_hat_rf <- predict(rf, newdata=test)
+y_obs <- test$Risk
+```
+
+
+## 4. GBM
+
+- modeling - RMSE : 3.80
+
+```{r fig.height=3.8, fig.width=6, echo=FALSE}
+set.seed(20210911)
+gbm = gbm( Risk ~ ., data=train, distribution="gaussian", n.trees=150, interaction.depth=3)
+
+par(mar = c(5, 8, 2, 2))
+gbm_plot = summary.gbm(gbm, las=2, main="Variable Importance")
+```
+
+```{r include=FALSE}
+sqrt(gbm$train.error[150])
+```
+
+```{r include=FALSE}
+y_hat_gbm <- predict(gbm, newdata=test)
+y_obs <- test$Risk
+```
+
+
+## 5. XGBoost
+
+```{r include=FALSE}
+train_x = data.matrix(train[,-10])
+train_y = train[,10]
+dtrain = xgb.DMatrix(train_x, label=train_y)
+
+test_x = data.matrix(test[,-10])
+test_y = test[,10]
+dtest = xgb.DMatrix(test_x, label=test_y)
+```
+
+- modeling - RMSE : 1.67
+
+```{r include=FALSE}
+set.seed(20210911)
+xgb = xgboost( data=dtrain, objective="reg:squarederror", nrounds=150, max_depth=3, eta=0.3, gamma=0,
+               colsample_bytree = 0.8, min_child_weight = 1, subsample = 1)
+```
+
+```{r fig.height=4, fig.width=6, echo=FALSE}
+xgb_importance = xgb.importance(colnames(train_x), model=xgb)
+xgb.plot.importance(xgb_importance, main="Variable Importance")
+```
+
+```{r include=FALSE}
+xgb$evaluation_log[150,"train_rmse"]
+```
+
+```{r include=FALSE}
+y_hat_xgb <- predict(xgb, newdata=dtest)
+y_obs <- test$Risk
+```
+
+## 6. Comparing Models
+
+```{r include=FALSE}
+rmse1 = RMSE(y_hat_rf, y_obs)
+rsq1 = RSQ(y_hat_rf, y_obs)
+
+rmse2 = RMSE(y_hat_gbm, y_obs)
+rsq2= RSQ(y_hat_gbm, y_obs)
+
+rmse3 = RMSE(y_hat_xgb, y_obs)
+rsq3 = RSQ(y_hat_xgb, y_obs)
+
+tibble(model=c("RF", "GBM", "XGBoost"),
+       RMSE=c(rmse1,rmse2,rmse3),
+       RSQ=c(rsq1,rsq2,rsq3))
+```
+
+| Model | RMSE(train) |RMSE  | $R^2$  |
+|:-----:| :---------: |:---: | :---:|
+|RF     | 6.31        |6.21  | 0.79 | 
+|GBM    | 3.80        |4.94  | 0.89 |       
+|XGBoost| 1.67        |4.87  | 0.90 |
+
+# Conclusion
+## Comparing 2 Data
+
+- Travel Insurance : Classification(AUC)
+- Heart Risk : Regression($R^2$)
+
+|       | Travel Insurance       | Heart Risk         |
+|:-----:| :--------------------: | :----------------: |
+|RF     | 0.89                   | 0.79               |
+|GBM    | 0.84                   | 0.89               |         
+|XGBoost| 0.86                   | 0.90               |
+
+
+
+
+
+
+
+
+

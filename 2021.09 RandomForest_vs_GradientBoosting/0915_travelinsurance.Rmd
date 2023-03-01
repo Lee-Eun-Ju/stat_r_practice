@@ -1,0 +1,209 @@
+---
+title: "0915_travelinsurance"
+author: "LEE EUN JU"
+date: "2021년 9월 11일"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(caret)
+library(ROSE)
+library(randomForest)
+library(gbm)
+library(xgboost)
+library(ROCR)
+```
+
+1. Travel Insurance data
+
+Age - 나이
+Employment Type - 직업(1:정부 0:개인)
+GraduateOrNot – 대학졸업유무(1:Yes 0:No)
+Annual Income - 고객의 연수익 
+FamilyMembers – 고객 가족수
+ChronicDisease - 만성질환 유무(1:Yes 0:No)
+FrequentFlyer - 2017~2019 항공권 예약 이력 유무(1:Yes 0:No)
+EverTravelledAbroad - 해외여행유무(1:Yes 0:No)
+TravelInsurance - 여행보험가입유무(1:Yes 0:No)
+
+```{r}
+data = read.csv("TravelInsurancePrediction.csv")
+data = data[,-1]
+head(data)
+```
+
+
+2. Preprocessing
+
+1) NA
+```{r}
+data %>% filter(is.na(data))
+```
+
+2) data type
+```{r}
+data$Employment.Type %>% unique()
+data = data %>% mutate(
+  Employment.Type = ifelse(Employment.Type=="Government Sector", 1, 0),
+  GraduateOrNot = ifelse(GraduateOrNot=="Yes", 1, 0),
+  FrequentFlyer = ifelse(FrequentFlyer=="Yes", 1, 0),
+  EverTravelledAbroad = ifelse(EverTravelledAbroad=="Yes", 1, 0))
+
+data$Employment.Type = as.factor(data$Employment.Type)
+data$GraduateOrNot = as.factor(data$GraduateOrNot)
+data$ChronicDiseases = as.factor(data$ChronicDiseases)
+data$FrequentFlyer = as.factor(data$FrequentFlyer)
+data$EverTravelledAbroad = as.factor(data$EverTravelledAbroad)
+data$TravelInsurance = as.factor(data$TravelInsurance)
+```
+
+
+3) Y class 비율 
+```{r}
+data %>% group_by(TravelInsurance) %>% summarise(n=n())
+data %>% 
+  ggplot(aes(x=TravelInsurance)) +
+  geom_bar()
+
+set.seed(20210911)
+data_osample = ovun.sample(TravelInsurance~., data=data, method="over")$data 
+data_osample %>% group_by(TravelInsurance) %>% summarise(n=n())
+data_osample %>% 
+  ggplot(aes(x=TravelInsurance)) +
+  geom_bar()
+```
+
+
+3. train set 70% / test set 30%
+```{r}
+set.seed(20210911)
+n = dim(data_osample)[1]
+i = createDataPartition(data_osample$TravelInsurance, p=0.7, list=FALSE)
+train = data_osample[i,]
+test = data_osample[-i,]
+```
+
+
+4. RandomForest
+0)grid search
+```{r}
+set.seed(20210911)
+tcontrol = trainControl(method="repeatedcv", number=10, repeats=5, search="grid")
+rf_fit = train(TravelInsurance~., data=train, method="rf", trControl=tcontrol)
+rf_fit
+```
+
+1) modeling
+```{r}
+set.seed(2021091)
+rf = randomForest( TravelInsurance ~ ., data=train, importance=TRUE, mtry=5)
+
+rf
+summary(rf)
+plot(rf)
+
+importance(rf)
+varImpPlot(rf)
+```
+
+2) prediction
+```{r}
+y_hat_rf <- predict(rf, newdata=test, type='prob')[,'1']
+y_obs <- test$TravelInsurance
+
+pred_rf <- prediction(y_hat_rf, y_obs)
+perf_rf <- performance(pred_rf, measure='tpr', x.measure='fpr')
+
+plot(perf_rf, col='black',main='ROC Curve')
+abline(0,1)
+legend('bottomright', legend='RF', col='black', lty=1, lwd=2)
+performance(pred_rf, "auc")@y.values[[1]]
+```
+
+
+5. GBM
+0)grid search
+```{r}
+set.seed(20210911)
+tcontrol = trainControl(method="repeatedcv", number=10, repeats=5, search="grid")
+gbm_fit = train(TravelInsurance~., data=train, method="gbm", trControl=tcontrol)
+gbm_fit
+```
+
+1) modeling
+```{r}
+set.seed(20210911)
+gbm = gbm( (unclass(TravelInsurance)-1) ~ ., data=train, distribution="bernoulli",
+           n.trees = 150, interaction.depth = 3, shrinkage=0.1, n.minobsinnode=10)
+
+gbm
+summary.gbm(gbm, las=2)
+gbm.perf(gbm, plot.it = T, oobag.curve = T, method = 'OOB')
+```
+
+2) prediction
+```{r}
+y_hat_gbm <- predict(gbm, newdata=test, type='response')
+y_obs <- test$TravelInsurance
+
+confusionMatrix(y_hat_gbm, y_obs)
+
+pred_gbm <- prediction(y_hat_gbm, y_obs)
+perf_gbm <- performance(pred_gbm, measure='tpr', x.measure='fpr')
+
+plot(perf_gbm, col='black',main='ROC Curve')
+abline(0,1)
+legend('bottomright', legend='GBM', col='black', lty=1, lwd=2)
+performance(pred_gbm, "auc")@y.values[[1]]
+```
+
+
+6. XGBoost
+0)grid search
+```{r}
+set.seed(20210911)
+tcontrol = trainControl(method="repeatedcv", number=10, repeats=5, search="grid")
+xgb_fit = train(TravelInsurance~., data=train, method="xgbTree", trControl=tcontrol)
+xgb_fit
+```
+
+1) type
+```{r}
+train_x = data.matrix(train[,-9])
+train_y = train[,9]
+dtrain = xgb.DMatrix(train_x, label=(unclass(train_y)-1))
+
+test_x = data.matrix(test[,-9])
+test_y = test[,9]
+dtest = xgb.DMatrix(test_x, label=test_y)
+```
+
+2) modeling
+```{r}
+set.seed(20210911)
+xgb = xgboost( data=dtrain, objective="binary:logistic", nrounds = 150, max_depth = 3, eta = 0.4, 
+               gamma = 0, colsample_bytree = 0.8, min_child_weight = 1, subsample = 1 )
+
+xgb
+xgb_importance = xgb.importance(colnames(train_x), model=xgb)
+xgb.plot.importance(xgb_importance)
+```
+
+3) prediction
+```{r}
+y_hat_xgb <- predict(xgb, newdata=dtest, type='response')
+y_obs <- test$TravelInsurance
+
+confusionMatrix(y_hat_xgb, y_obs)
+
+pred_xgb <- prediction(y_hat_xgb, y_obs)
+perf_xgb <- performance(pred_xgb, measure='tpr', x.measure='fpr')
+
+plot(perf_xgb, col='black',main='ROC Curve')
+abline(0,1)
+legend('bottomright', legend='XGBoost', col='black', lty=1, lwd=2)
+performance(pred_xgb, "auc")@y.values[[1]]
+```
+

@@ -1,0 +1,173 @@
+---
+title: "Time Series Analysis"
+output: html_document
+---
+
+<div align = "right">
+#### Homework3 201811526 이은주
+</div>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, error = FALSE, warning = FALSE)
+library(forecast)
+library(ggplot2)
+library(seasonal) #seas function
+```
+
+### Data
+```{r}
+data = read.csv('loadregr.csv') #find a proper directory for your data.
+(data_ts = ts(data$MKw, start=c(1970, 1), end=c(1979, 12), frequency=12 ))
+```
+1970년 1월부터 1979년 12월까지의 Iowa state의 electricity data입니다.
+
+\pagebreak
+<br/><br/>
+
+### 1. Draw time series plot
+```{r }
+data_ts %>% 
+  autoplot() +
+  ggtitle("Time Series Plot of Electricity data") +
+  xlab("Year") + ylab("elctricity amount (MKw)") 
+  
+```
+
+* 위의 time series plot을 보면 시간이 흐를수록 증가하는 추세를 볼 수 있고   
+  일정 기간마다 상승 및 하강을 이루는 계절성을 보임을 알 수 있습니다.
+  이에 따라 추세성, 계절성, 잔차에 대해 decomposition해 볼 필요가 있음을 알 수 있습니다.
+
+\pagebreak
+
+### 2. Fit decomposition model and draw a plot with the original data, seasonally adjusted, trend-cycle component all together.
+
+* Fit decomposition model 
+=> 총 5가지 방법을 이용하여 decomposition을 한 후,  
+    ⅰ. kpss.test를 통해 HO:residual is independent 를 검정한 결과  
+    ⅱ. ACF, PACF가 유의수준 내에 존재하는 가  
+   두가지를 기준으로 고려하여 가장 정상성을 만족하는 모델을 최종모델로 선택하여 plot을 그렸습니다.  
+  
+1) classical additive decomposition
+```{r fig.height=4, fig.width=5}
+dec_add = decompose(data_ts, type="additive")
+dec_add %>% 
+  autoplot() +
+  ggtitle("Additive decomposition of electricity data")
+
+#diagonosis
+tseries::kpss.test(dec_add$random, null="Level")
+tsdisplay(dec_add$random, main="Random_Additive model")
+```
+
+<br/><br/>
+
+2) classical multiplicative decomposition
+```{r fig.height=4, fig.width=6}
+dec_mul = decompose(data_ts, type="multiplicative")
+dec_mul %>% 
+  autoplot() +
+  ggtitle("Multiplicative decomposition of electricity data") 
+
+#diagonosis
+tseries::kpss.test(dec_mul$random, null="Level")
+tsdisplay(dec_mul$random, main="Random_Multiplicative model")
+```
+
+<br/><br/>
+
+3) SEATS decomposition
+```{r fig.height=4, fig.width=6}
+dec_seas = seas(data_ts)
+dec_seas %>% 
+  autoplot() +
+  ggtitle("SEATS decomposition of electiricity data")
+
+#diagonosis
+tseries::kpss.test(dec_seas$data[,"irregular"], null="Level")
+tsdisplay(dec_seas$data[,"irregular"], null="Level", main="Random_SEATS model")
+```
+
+<br/><br/>
+
+4) X11 decomposition
+```{r fig.height=4, fig.width=6}
+dec_x11 = seas(data_ts, x11="")
+dec_x11 %>% 
+  autoplot() +
+  ggtitle("X11 decomposition of electiricity data")
+
+#diagonosis
+tseries::kpss.test(dec_x11$data[,"irregular"], null="Level")
+tsdisplay(dec_x11$data[,"irregular"], null="Level", main="Random_X11 model")
+```
+
+<br/><br/>
+
+5) STL decomposition
+```{r fig.height=4, fig.width=6}
+dec_stl = stl(data_ts, "periodic")
+dec_stl %>% 
+  autoplot() +
+  ggtitle("STL decomposition of electricity data")
+
+#diagonosis
+tseries::kpss.test(dec_stl$time.series[,"remainder"], null="Level")
+tsdisplay(dec_stl$time.series[,"remainder"], null="Level", main="Random_STL model")
+```
+
+\pagebreak
+
+<br/><br/>
+* plot with the original data, seasonally adjusted, trend-cycle component  
+=> 위의 5가지 모델은 모두 kpss.test에서 H0:residual is independent에 대해 p-value가 0.1로 귀무가설을 기각하지 못하였습니다. 즉, 모두 정상성을 어느정도 만족한다고 볼 수 있어 그 다음 기준인 ACF와 PACF가 모두 유의수준 내에 있는지에 따라 최종모델로 SEATS decomposition 방법을 이용하여 plot을 그렸습니다.  
+   
+```{r }
+autoplot(data_ts, series="Data") +
+  autolayer(trendcycle(dec_seas), series="Trend") +
+  autolayer(seasadj(dec_seas), series="Seasonally Adjusted") +
+  xlab("Year") + ylab("elctricity amount (MKw)") +
+  ggtitle("Compare original data, seasonally adjusted, trend-cycle") +
+  scale_colour_manual(values=c("gray","red","blue"),
+                      breaks=c("Data","Seasonally Adjusted","Trend"))
+```
+
+* blue line : electricity data의 trend를 나타내는 것으로 시간이 지날수록 상승세를 보입니다.  
+* red line : electricity data에서 계절성만을 제외하고, trend와 remainder만을 그린 것으로    
+             gray line과 비교하였을 때, original data에서 계절성이 어느 정도 사라진 것을 알 수 있습니다.   
+
+\pagebreak
+
+<br/><br/>
+
+### 3. Draw sub-series seasonal effect graph in each month.
+```{r}
+data_ts %>% 
+  ggsubseriesplot() +
+  ylab("electriciy amount (MKw)") +
+  ggtitle("Seasonal Subseries Plot : Electricity data")
+```
+
+* Seasonal Subseries Plot은 데이터의 계절성을 확인하기 위해 1970년부터 1979년까지의 데이터를 달(month)별로 함축한 것입니다.   
+  위의 그래프에 따르면, 우선 12월~2월(겨울)에 전기량이 높은 것을 볼 수 있습니다.  
+  이후 4-5월까지 전기량이 줄어들다가 다시 7~8월(여름)에는 전기량이 증가하는 것을 알 수 있습니다.  
+  또한, 9~10월에 다시 전기량이 줄어들며 겨울이 다가오면서 또다시 전기량이 높아집니다.  
+  즉, 달별로 수준의 차이가 있으며 이에 따라 계절성이 존재한다는 것을 알 수 있습니다.   
+  
+
+\pagebreak
+
+<br/><br/>
+
+### 4. Draw a polar seasonal plot.
+```{r}
+data_ts %>% 
+  ggseasonplot(polar=TRUE) +
+  ylab("electriciy amount (MKw)") +
+  ggtitle("Polar seasonal Plot : Electricity data")
+```
+
+* Polar Seasonal Plot은 각 달별 전기량을 polar coordinate system(극좌표계)에 연도별로 나타낸 것입니다.  
+  위의 그래프를 보면, 연도가 증가할수록 원형이 커지므로 전기사용량이 증가하는 것을 알 수 있습니다.  
+  또한, 대체적인 원의 모양을 보면 12~2월, 6~8월에 전기사용량을 많으며, 3~5월, 9~11월에는 전기사용량이 적은 것을 알 수 있습니다.   
+  즉, 연도가 증가할수록 전기사용량이 증가하는 추세이며 특히 여름과 겨울에 전기사용량이 높습니다.
+  

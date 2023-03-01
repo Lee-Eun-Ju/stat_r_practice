@@ -1,0 +1,265 @@
+---
+title: "Time Series Analysis"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(forecast)
+library(gridExtra)
+library(DMwR)
+```
+
+<div align = "right">
+#### Homework5 201811526 이은주
+</div>
+
+### 3. SavingsRate  
+
+SavingRate data는 1955년부터 1979년까지의 US 거주율에 대한 분기별 데이터입니다.  
+예측을 위한 ARIMA 모델 선택을 위해 SavingRate 데이터의 여러 특징을 알아보고 가장 좋은 모델을 최종 선택하겠습니다.  
+
+<br/>
+<br/>
+
+#### [STEP 1] 시계열 데이터 처리 
+
+```{r}
+saving = read.table("SavingsRate.txt") %>% 
+  pivot_longer(V1:V4, names_to="branch", values_to="rate")
+saving_ts = ts(saving$rate, start=c(1955,1), frequency=4)
+head(saving_ts); tail(saving_ts)
+```
+
+(행, 열)로 이루어진 SavingRate의 데이터를 하나의 행으로 변환하여 시계열 데이터로 변환하기 쉽도록 하였습니다.
+변환 결과, 1955년부터 1980년까지 4분기 데이터를 볼 수 있습니다.
+
+\pagebreak 
+
+<br/>
+
+#### [STEP 2] 시계열 그래프
+
+SavingRate 데이터의 시계열 그래프를 통해 시간 흐름에 따른 특징을 알아봅니다.
+
+```{r fig.height=3, fig.width=6}
+autoplot(saving_ts) + ylab("saving_rate") +
+  ggtitle("Time Series Plot of SavingsRate data") 
+```
+
+전반적으로 6%에서 크게 벗어나지는 않지만, 중간 중간 예측 불가능한 큰 하락과 상승이 있는 것으로 보입니다.  
+특히 1970년 후반에 급격히 큰 하락이 있었습니다.  
+
+\pagebreak 
+
+<br/>
+
+#### [STEP 3] ACF, PACF
+
+ACF(자기상관함수) : t시간의 차이가 있는 두 관측값의 상관성  
+PACF(부분자기상관함수) : 상관성을 비교하기 위한 두 관측값 외 다른 관측값을 제외 후, 두 관측값의 상관성  
+
+AR(p) : ACF가 지수적으로 또는 sin함수 형태로 감소하며, PACF가 p+1차 이후 절단되어 보입니다.  
+MA(q) : ACF가 q+1차 이후 절단되며, PACF가 지수적으로 또는 sin함수 형태로 감소합니다.  
+ARMA(p,q) : ACF는 q-p+1차부터, PACF는 p-q+1차부터 지수적으로 또는 sin함수 형태로 감소합니다. 
+
+```{r fig.height=3, fig.width=6}
+p1 = ggAcf(saving_ts) + ylab("saving_rate") + ggtitle("ACF of SavingsRate data")
+p2 = ggPacf(saving_ts) + ylab("saving_rate") + ggtitle("PACF of SavingsRate data")
+grid.arrange(p1, p2, ncol=2)
+```
+
+ACF가 sin 함수 형태로 천천히 감소하고 PACF가 시차2 이후부터 절단된 것으로 보이므로 AR(1) 모델을 임의로 선택합니다.  
+또한 ARMA모형일 가능성을 고려하여 ARMA(1,1) 모델 또한 고려하고 PACF의 시차2에 대한 값이 유의수준 경계에 매우 가까우므로 AR(2) model 또한 고려해봅니다.
+
+\pagebreak 
+
+<br/>
+
+#### [STEP 4] Best model 선택
+
+train data : 모델 선택을 위한 학습용 데이터  
+test data : 최종 선택한 모델의 최종 성능 평가를 위한 데이터 
+
+SavingRate 데이터를 1955년~1975년 train data, 1976년~1980년 test data로 나누어 위에서 임의로 선택한 AR(1) model, AR(1,1) model과 자동선택된 ARMA model을 비교해 보고 가장 좋은 모델을 선택합니다.
+
+```{r}
+train_saving = saving_ts[1:80]
+test_saving = saving_ts[81:104]
+```
+
+<br/>
+<br/>
+
+##### (1) 모델 적합  
+
+* AR(1) model
+```{r}
+arimaModel_100 = arima(train_saving, order=c(1,0,0)) ;print(arimaModel_100)
+```
+AR(1) model : $Y_t$ = 6.3788 + 0.8516$Y_{t-1}$ + $a_t$, $a_t$:WN
+<br/>
+* ARMA(1,1) model
+```{r}
+arimaModel_101 = arima(train_saving, order=c(1,0,1)) ; print(arimaModel_101)
+```
+ARMA(1,1) model : $Y_t$ = 6.3841 + 0.8671$Y_{t-1}$ + $a_t$ + 0.0504$a_{t-1}$, $a_t$:WN
+<br/>
+
+\pagebreak
+
+<br/>
+* AR(2) model
+```{r}
+arimaModel_200 = arima(train_saving, order=c(2,0,0)) ; print(arimaModel_200)
+```
+AR(2) model : $Y_t$ = 6.3873 + 0.7909$Y_{t-1}$ + 0.0745$Y_{t-2} + $a_t$, $a_t$:WN
+
+```{r}
+AutoarimaModel = auto.arima(train_saving) ; print(AutoarimaModel)
+```
+ARIMA(0,1,0) model : $\Delta Y_t$ = $\mu$ + $\Delta Y_{t-1}$  
+-> 비정상성 모델(Random Walk)로 정상성을 만족하지 않는 시계열에 대한 모델입니다.
+
+세 개의 모델의 AIC를 보면, AR(1):148.55, AR(2)150.14, ARMA(1,1):150.31, ARIMA(0,1,0):146.48으로 
+Auto ARIMA 모델의 AIC값이 가장 작습니다.  
+하지만 각 모델의 특징을 알아보고 나서 최종 모델을 선택하도록 하겠습니다. 
+
+<br/>
+
+\pagebreak
+
+<br/>
+
+##### (2) 정상성 : 시간이 흐름에도 확률적 성질이 변하지 않는 성질  
+
+모델의 특성방정식 근 절대값이 1보다 클 때, 정상성을 만족합니다.  
+즉 역근의 절대값이 1보다 작아야 하므로 원 안에 역근이 있으면 정상성을 만족한다고 할 수 있습니다.  
+
+```{r}
+p1=autoplot(arimaModel_100) + ggtitle("Inverse AR roots by AR(1) model") +
+  theme(plot.title = element_text(size=10))
+p2=autoplot(arimaModel_200) + ggtitle("Inverse AR roots by AR(2) model") +
+  theme(plot.title = element_text(size=10))
+p3=autoplot(arimaModel_101) + ggtitle("Inverse AR roots by ARMA(1,1) model") +
+  theme(plot.title = element_text(size=10))
+p4=autoplot(AutoarimaModel) +
+  theme(plot.title = element_text(size=10))
+grid.arrange(p1,p2,p3,p4, ncol=2) 
+```
+
+AR(1), AR(2), AR(1,1) 모델은 정상성을 만족하는 것으로 보이며 Autoarima모델은 비정상성 모델이므로 원 안에 역근이 존재하지 않습니다.
+
+<br/>
+
+\pagebreak
+
+<br/>
+
+##### (3) 잔차의 독립성 및 정규성
+
+잔차의 분포를 통해 정규성을 확인하고, ACF값이 유의수준 내에 있다면 잔차의 자기상관성이 없다고 할 수 있습니다.  
+잔차의 독립성에 대해 정확히 알아보기 위해 Ljung-Box test 검정(H0:잔차가 독립) 또한 진행합니다.  
+
+```{r fig.height=3, fig.width=6}
+checkresiduals(arimaModel_100)
+checkresiduals(arimaModel_200)
+checkresiduals(arimaModel_101)
+checkresiduals(AutoarimaModel)
+```
+
+네개의 모델 모두 정규성은 따르나 검정 결과 잔차들이 독립이라고 할 수 없습니다.  
+잔차가 독립이 아니라는 의미는 잔차에 모델이 설명하지 못한 부분이 있는 것입니다.  
+이는 잔차로 식이 이루어지는 MA모델의 차수를 높일 필요가 있습니다.
+이에 따라 기존 고려했던 모델에서 MA차수를 2로 두어 ARMA(1,2), ARMA(2,2)에 대해 고려해보록 하겠습니다.
+
+\pagebreak
+<br/>
+
+
+##### 다시 (1)모델 적합부터 시작
+
+* ARIMA(1,0,2) model
+```{r}
+arimaModel_102 = arima(train_saving, order=c(1,0,2)) ;print(arimaModel_102)
+```
+ARIMA(1,0,2) model = $Y_t$ = 6.3569 + 0.7568$Y_{t-1}$ + $a_t$ - 0.0217$a_{t-1}$ - 0.4442$a_{t-2}$, $a_t$:WN  
+
+* ARIMA(2,0,2) model
+```{r }
+arimaModel_202 = arima(train_saving, order=c(2,0,2)) ; print(arimaModel_202)
+```
+ARIMA(2,0,2) model = $Y_t$ = 6.3564 + 0.7882$Y_{t-1}$ - 0.0307$Y_{t-1}$ + $a_t$ + 0.0034$a_{t-1}$ - 0.4424$a_{t-2}$, $a_t$:WN
+
+AIC값이 ARIMA(1,0,2):142.4, ARIMA(2,0,2):144.38으로 앞서 보왔던 모든 모델 중에서 ARIMA(1,0,2)모델이 가장 작은 AIC값을 가지고 있는 것을 알 수 있습니다. ARIMA(2,0,2) 또한 그 다음으로 가장 작습니다.
+
+두 모델이 정상성을 만족하고 잔차가 정규성을 지니고 독립인지 확인해보도록 하겠습니다.
+
+\pagebreak
+
+<br/>
+(2) 정상성 만족
+```{r fig.height=7}
+p1 =autoplot(arimaModel_102) + ggtitle("Inverse AR roots by ARMA(1,2) model") +
+  theme(plot.title = element_text(size=10))
+p2 =autoplot(arimaModel_202) + ggtitle("Inverse AR roots by ARMA(2,2) model") +
+  theme(plot.title = element_text(size=10))
+grid.arrange(p1,p2)
+```
+원 내부에 모두 포함되므로 정상성을 만족한다고 할 수 있습니다.
+
+<br/>
+
+\pagebreak
+
+<br/>
+
+##### (3) 잔차의 독립성 및 정규성
+
+```{r fig.height=3, fig.width=6}
+checkresiduals(arimaModel_102) 
+checkresiduals(arimaModel_202) 
+```
+
+MA차수를 높인 결과 두 모델 모두 잔차의 독립성을 만족하고 정상성과 정규성 또한 모두 만족하는 것으로 보입니다.
+이에 따라 두 모델을 가지고 예측을 진행하도록 하겠습니다.
+
+<br/>
+<br/>
+
+##### (4) 예측 및 정확성  
+
+```{r fig.height=3, fig.width=6}
+forecast1 = forecast::forecast(arimaModel_102, h=24)
+forecast2 = forecast::forecast(arimaModel_202, h=24)
+
+p1= autoplot(forecast1) + ggtitle("Forecasting by ARIMA(1,0,2)")
+p2= autoplot(forecast2) + ggtitle("Forecasting by ARIMA(2,0,2)")
+grid.arrange(p1,p2,ncol=2)
+```
+
+1976년~1980년에 대한 예측을 한 결과 두 모델 모두 매우 유사하게 예측을 했습니다.
+
+
+```{r}
+accuracy(arimaModel_102)
+accuracy(arimaModel_202)
+```
+
+RMSE 기준으로 두 모델의 정확성을 비교하면 매우 비슷하나 ARMA(2,2)의 RMSE가 조금 더 낮은 것을 알 수 있습니다. 이에 따라 ARIMA(1,0,2)를 최종 선택합니다.
+(RMSE : 여러 정확성 나타내는 지표 중 하나로 작을수록 정확성이 높다고 판단합니다.)
+
+<br/>
+<br/>
+
+##### (5) test data 예측값, 실제값 비교
+
+```{r}
+df.forecast2 = data.frame(forecast2)
+regr.eval(test_saving, df.forecast2$Point.Forecast)
+```
+
+RMSE가 1.4011으로 0에 가깝지는 않아 예측 성능이 좋은 것은 아니지만 어느 정도의 예측성능은 이루어진 것 같습니다.
+

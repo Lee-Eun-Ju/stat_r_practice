@@ -1,0 +1,176 @@
+---
+title: "0915_travelinsurance"
+author: "LEE EUN JU"
+date: "2021년 9월 11일"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(caret)
+library(randomForest)
+library(gbm)
+library(xgboost)
+library(ROCR)
+```
+
+
+1. heart risk data
+```{r}
+data = read.csv("heartRisk.csv")
+head(data)
+```
+
+1) isMale - 성별 [1:남성 / 0:여성]
+2) isBlack - 인종 [1:흑인 / 0:흑인외인종]
+3) isSmoker - 흡연유무 [1:흡연자 / 0:비흡연자]
+4) isDiabetic - 당뇨병유무 [1:당뇨(유) / 0:당뇨(무)]
+5) isHypertensive - 고혈압유무 [1:고혈압(유) / 0:고혈압(무)]
+6) Age - 나이
+7) Systolic - 최고혈압
+8) Cholesterol - 총콜레스테롤
+9) HDL - HDL콜레스테롤
+10) Risk - 심혈관실환(ASCVD) 위험도(%) : target Y
+
+
+2. Preprocessing 
+
+1) NA
+```{r}
+data %>% filter(is.na(data))
+```
+
+2) data type
+```{r}
+data$isMale = as.factor(data$isMale)
+data$isBlack = as.factor(data$isBlack)
+data$isSmoker = as.factor(data$isSmoker)
+data$isDiabetic = as.factor(data$isDiabetic)
+data$isHypertensive = as.factor(data$isHypertensive)
+```
+
+
+3. train set 70% / test set 30*
+```{r}
+set.seed(20210911)
+n = dim(data)[1]
+i = sample(1:n, n*0.7, replace=F)
+train = data[i,]
+test = data[-i,]
+```
+
+
+4. RandomForest
+0)grid search
+```{r}
+set.seed(20210911)
+tcontrol = trainControl(method="repeatedcv", number=10, repeats=5, search="grid")
+rf_fit = train(Risk~., data=train, method="rf", trControl=tcontrol)
+rf_fit
+```
+
+1)modeling
+```{r}
+set.seed(20210911)
+rf = randomForest( Risk ~ ., data=train, mtry=5, importance=TRUE)
+
+rf
+summary(rf)
+plot(rf)
+
+importance(rf)
+varImpPlot(rf)
+```
+
+2)prediction
+```{r}
+y_hat_rf <- predict(rf, newdata=test)
+y_obs <- test$Risk
+
+RMSE(y_hat_rf, y_obs)
+MAE(y_hat_rf, y_obs)
+RSQ(y_hat_rf, y_obs)
+```
+
+
+5. GBM
+0)grid search
+```{r}
+set.seed(20210911)
+tcontrol = trainControl(method="repeatedcv", number=10, repeats=5, search="grid")
+gbm_fit = train(Risk~., data=train, method="gbm", trControl=tcontrol)
+gbm_fit
+```
+
+1)modeling
+```{r}
+set.seed(20210911)
+gbm = gbm( Risk ~ ., data=train, distribution="gaussian", n.trees=150, interaction.depth=3)
+
+gbm
+summary(gbm, las = 2) 
+gbm.perf(gbm, plot.it = T, oobag.curve = T, method = 'OOB')
+```
+
+2)prediction
+```{r}
+y_hat_gbm <- predict(gbm, newdata=test)
+y_obs <- test$Risk
+
+RMSE(y_hat_gbm, y_obs)
+MAE(y_hat_gbm, y_obs)
+RSQ(y_hat_gbm, y_obs)
+```
+
+6. XGBoost
+0)grid search
+```{r}
+set.seed(20210911)
+tcontrol = trainControl(method="repeatedcv", number=10, repeats=5, search="grid")
+xgb_fit = train(Risk~., data=train, method="xgbTree", trControl=tcontrol)
+xgb_fit
+```
+
+1) type
+```{r}
+train_x = data.matrix(train[,-10])
+train_y = train[,10]
+dtrain = xgb.DMatrix(train_x, label=train_y)
+
+test_x = data.matrix(test[,-10])
+test_y = test[,10]
+dtest = xgb.DMatrix(test_x, label=test_y)
+```
+
+2) modeling
+```{r}
+set.seed(20210911)
+xgb = xgboost( data=dtrain, objective="reg:squarederror", nrounds=150, max_depth=3, eta=0.3, gamma=0,
+               colsample_bytree = 0.8, min_child_weight = 1, subsample = 1)
+
+xgb
+xgb_importance = xgb.importance(colnames(train_x), model=xgb)
+xgb.plot.importance(xgb_importance)
+```
+
+3) prediction
+```{r}
+y_hat_xgb <- predict(xgb, newdata=dtest)
+y_obs <- test$Risk
+
+RMSE(y_hat_xgb, y_obs)
+MAE(y_hat_xgb, y_obs)
+RSQ(y_hat_xgb, y_obs)
+```
+
+
+
+
+
+
+
+
+
+
+
